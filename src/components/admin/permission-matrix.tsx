@@ -57,6 +57,11 @@ export function PermissionMatrix({ roleId, permissions = [], assignedIds = [] }:
 
   return (
     <div className="space-y-6 max-w-2xl">
+      {permissions.length === 0 && (
+        <p className="text-sm text-muted-foreground">
+          No permissions are available. Run the database seed to create the permission catalog.
+        </p>
+      )}
       {Object.entries(grouped).map(([resource, perms]) => (
         <div key={resource} className="space-y-2">
           <h3 className="text-sm font-semibold capitalize">{resource.replace(/_/g, " ")}</h3>
