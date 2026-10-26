@@ -15,12 +15,7 @@ interface ProductOption {
   name: string;
   sku: string;
   unitAbbreviation: string | null;
-  stockByLocation: { locationId: string; quantity: number }[];
-}
-
-interface LocationOption {
-  id: string;
-  name: string;
+  availableQuantity: number;
 }
 
 interface KitchenIssueRow {
@@ -29,25 +24,25 @@ interface KitchenIssueRow {
   sku: string;
   unitAbbreviation: string | null;
   locationName: string;
+  receiverName: string;
   issuedQuantity: number;
   returnedQuantity: number;
   remainingQuantity: number;
   notes: string | null;
-  createdByName: string | null;
   createdAt: Date;
 }
 
 interface KitchenInventoryManagerProps {
   products: ProductOption[];
-  locations: LocationOption[];
+  warehouse: { id: string; name: string } | null;
   issues: KitchenIssueRow[];
 }
 
-export function KitchenInventoryManager({ products, locations, issues }: KitchenInventoryManagerProps) {
+export function KitchenInventoryManager({ products, warehouse, issues }: KitchenInventoryManagerProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [productId, setProductId] = useState("");
-  const [locationId, setLocationId] = useState("");
+  const [receiverName, setReceiverName] = useState("");
   const [quantity, setQuantity] = useState("");
   const [notes, setNotes] = useState("");
   const [returnQuantities, setReturnQuantities] = useState<Record<string, string>>({});
@@ -57,30 +52,30 @@ export function KitchenInventoryManager({ products, locations, issues }: Kitchen
     () => products.find((product) => product.id === productId),
     [products, productId]
   );
-  const availableQuantity = selectedProduct?.stockByLocation.find((stock) => stock.locationId === locationId)?.quantity ?? 0;
+  const availableQuantity = selectedProduct?.availableQuantity ?? 0;
 
   async function handleIssue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const parsedQuantity = Number(quantity);
-    if (!productId || !locationId || !quantity.trim() || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
-      toast({ title: "Missing or invalid information", description: "Select a product and location, then enter a quantity greater than zero.", variant: "destructive" });
+    if (!productId || !receiverName.trim() || !quantity.trim() || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      toast({ title: "Missing or invalid information", description: "Select a product, enter the receiver's name, and enter a quantity greater than zero.", variant: "destructive" });
       return;
     }
     if (parsedQuantity > availableQuantity) {
-      toast({ title: "Not enough stock", description: `Only ${availableQuantity} is available at this location.`, variant: "destructive" });
+      toast({ title: "Not enough stock", description: `Only ${availableQuantity} is available in the main warehouse.`, variant: "destructive" });
       return;
     }
 
     setIsSaving(true);
     try {
-      const result = await issueToKitchen({ productId, locationId, quantity: parsedQuantity, notes });
+      const result = await issueToKitchen({ productId, receiverName, quantity: parsedQuantity, notes });
       if (!result.success) {
         toast({ title: "Could not issue stock", description: result.error, variant: "destructive" });
         return;
       }
       toast({ title: "Stock issued to kitchen" });
       setProductId("");
-      setLocationId("");
+      setReceiverName("");
       setQuantity("");
       setNotes("");
       router.refresh();
@@ -124,7 +119,7 @@ export function KitchenInventoryManager({ products, locations, issues }: Kitchen
     <div className="space-y-6">
       <section className="rounded-md border p-4">
         <h2 className="text-lg font-semibold">Issue stock to kitchen</h2>
-        <form onSubmit={handleIssue} className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <form onSubmit={handleIssue} className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div className="space-y-2 lg:col-span-2">
             <Label htmlFor="kitchen-product">Product</Label>
             <Select value={productId || undefined} onValueChange={setProductId} disabled={isSaving}>
@@ -137,15 +132,15 @@ export function KitchenInventoryManager({ products, locations, issues }: Kitchen
             </Select>
           </div>
           <div className="space-y-2">
-            <Label htmlFor="kitchen-location">Stock location</Label>
-            <Select value={locationId || undefined} onValueChange={setLocationId} disabled={isSaving}>
-              <SelectTrigger id="kitchen-location"><SelectValue placeholder="Select location" /></SelectTrigger>
-              <SelectContent>
-                {locations.map((location) => (
-                  <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <Label htmlFor="kitchen-receiver">Received by</Label>
+            <Input
+              id="kitchen-receiver"
+              maxLength={120}
+              value={receiverName}
+              onChange={(event) => setReceiverName(event.target.value)}
+              placeholder="Receiver's name"
+              disabled={isSaving}
+            />
           </div>
           <div className="space-y-2">
             <Label htmlFor="kitchen-quantity">Quantity</Label>
@@ -158,13 +153,13 @@ export function KitchenInventoryManager({ products, locations, issues }: Kitchen
               onChange={(event) => setQuantity(event.target.value)}
               disabled={isSaving}
             />
-            {selectedProduct && locationId && (
+            {selectedProduct && (
               <p className="text-xs text-muted-foreground">
-                Available: {availableQuantity} {selectedProduct.unitAbbreviation ?? ""}
+                Main warehouse available: {availableQuantity} {selectedProduct.unitAbbreviation ?? ""}
               </p>
             )}
           </div>
-          <div className="space-y-2">
+          <div className="space-y-2 lg:col-span-2">
             <Label htmlFor="kitchen-notes">Notes</Label>
             <Input
               id="kitchen-notes"
@@ -175,15 +170,20 @@ export function KitchenInventoryManager({ products, locations, issues }: Kitchen
               disabled={isSaving}
             />
           </div>
-          <div className="sm:col-span-2 lg:col-span-5">
-            <Button type="submit" disabled={isSaving || products.length === 0 || locations.length === 0}>
+          <div className="sm:col-span-2 lg:col-span-4">
+            <Button type="submit" disabled={isSaving || products.length === 0 || !warehouse}>
               {isSaving ? "Saving..." : "Issue to Kitchen"}
             </Button>
           </div>
         </form>
-        {(products.length === 0 || locations.length === 0) && (
+        <p className="mt-3 text-sm text-muted-foreground">
+          Stock is always issued from {warehouse?.name ?? "the main warehouse"}.
+        </p>
+        {(products.length === 0 || !warehouse) && (
           <p className="mt-3 text-sm text-destructive">
-            {products.length === 0 ? "Add an active product before issuing stock." : "Add an active location before issuing stock."}
+            {products.length === 0
+              ? "Add an active product before issuing stock."
+              : "Configure an active Main Warehouse (location code WH-MAIN) before issuing stock."}
           </p>
         )}
       </section>
@@ -196,6 +196,7 @@ export function KitchenInventoryManager({ products, locations, issues }: Kitchen
               <tr>
                 <th className="px-4 py-3 text-left font-medium">Date</th>
                 <th className="px-4 py-3 text-left font-medium">Product</th>
+                <th className="px-4 py-3 text-left font-medium">Received by</th>
                 <th className="px-4 py-3 text-left font-medium">Location</th>
                 <th className="px-4 py-3 text-right font-medium">Issued</th>
                 <th className="px-4 py-3 text-right font-medium">Returned</th>
@@ -212,6 +213,7 @@ export function KitchenInventoryManager({ products, locations, issues }: Kitchen
                     <div className="font-medium">{issue.productName}</div>
                     <div className="text-xs text-muted-foreground">{issue.sku}</div>
                   </td>
+                  <td className="px-4 py-3">{issue.receiverName}</td>
                   <td className="px-4 py-3">{issue.locationName}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{issue.issuedQuantity} {issue.unitAbbreviation ?? ""}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{issue.returnedQuantity}</td>
@@ -242,7 +244,7 @@ export function KitchenInventoryManager({ products, locations, issues }: Kitchen
                 </tr>
               ))}
               {issues.length === 0 && (
-                <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No kitchen issues yet.</td></tr>
+                <tr><td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">No kitchen issues yet.</td></tr>
               )}
             </tbody>
           </table>

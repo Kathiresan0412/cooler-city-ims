@@ -47,7 +47,7 @@ npm run dev
 - `src/config/` — Navigation and site configuration
 - `prisma/` — Database schema, migrations, and seed data
 
-Kitchen Inventory lets staff issue products from a stock location and record full or partial returns. Issued and returned quantities are reflected in the stock ledger.
+Kitchen Inventory records the receiver's name, issues products from the main warehouse, and supports full or partial returns. Access is controlled by the Kitchen Inventory permission, and movements are reflected in the stock ledger. The seed script does not create sample products.
 
 ## Roles & Permissions
 

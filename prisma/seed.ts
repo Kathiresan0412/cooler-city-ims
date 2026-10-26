@@ -25,6 +25,7 @@ const PERMISSIONS: { resource: string; action: string; label: string }[] = [
   { resource: "stock", action: "read", label: "View Stock" },
   { resource: "stock", action: "adjust", label: "Adjust Stock" },
   { resource: "stock", action: "open", label: "Set Opening Stock" },
+  { resource: "kitchen_inventory", action: "manage", label: "Manage Kitchen Inventory" },
   // GRN
   { resource: "grn", action: "read", label: "View GRNs" },
   { resource: "grn", action: "create", label: "Create GRNs" },
@@ -74,31 +75,6 @@ const PERMISSIONS: { resource: string; action: string; label: string }[] = [
   { resource: "roles", action: "manage", label: "Manage Roles" },
   { resource: "settings", action: "read", label: "View Settings" },
   { resource: "settings", action: "manage", label: "Manage Settings" },
-];
-
-// ─── Sample product data ──────────────────────────────────────────────────────
-
-const SAMPLE_PRODUCTS = [
-  { name: "Mineral Water 500ml", sku: "BVWT-500", barcode: "6001234000001", costPrice: 0.5, sellingPrice: 1.0 },
-  { name: "Mineral Water 1L", sku: "BVWT-1000", barcode: "6001234000002", costPrice: 0.8, sellingPrice: 1.5 },
-  { name: "Coca-Cola 330ml Can", sku: "COLA-330C", barcode: "6001234000003", costPrice: 0.6, sellingPrice: 1.2 },
-  { name: "Coca-Cola 1.5L PET", sku: "COLA-1500P", barcode: "6001234000004", costPrice: 1.2, sellingPrice: 2.5 },
-  { name: "Sprite 330ml Can", sku: "SPRT-330C", barcode: "6001234000005", costPrice: 0.6, sellingPrice: 1.2 },
-  { name: "Orange Juice 1L", sku: "OJ-1000", barcode: "6001234000006", costPrice: 1.5, sellingPrice: 3.0 },
-  { name: "Energy Drink 250ml", sku: "ENRG-250", barcode: "6001234000007", costPrice: 1.0, sellingPrice: 2.5 },
-  { name: "Iced Tea 500ml", sku: "ICT-500", barcode: "6001234000008", costPrice: 0.9, sellingPrice: 1.8 },
-  { name: "Chocolate Bar 50g", sku: "CHOC-50", barcode: "6001234000009", costPrice: 0.4, sellingPrice: 1.0 },
-  { name: "Potato Chips 100g", sku: "CHIP-100", barcode: "6001234000010", costPrice: 0.8, sellingPrice: 1.5 },
-  { name: "Cup Noodles Chicken", sku: "NDLE-CHK", barcode: "6001234000011", costPrice: 0.5, sellingPrice: 1.0 },
-  { name: "Canned Tuna 185g", sku: "TUNA-185", barcode: "6001234000012", costPrice: 1.2, sellingPrice: 2.5 },
-  { name: "Disposable Cup 8oz (50pk)", sku: "DCUP-8-50", barcode: "6001234000013", costPrice: 1.5, sellingPrice: 3.0 },
-  { name: "Paper Straw (200pk)", sku: "PSTR-200", barcode: "6001234000014", costPrice: 2.0, sellingPrice: 4.0 },
-  { name: "Serviette Napkin (500pk)", sku: "NAPK-500", barcode: "6001234000015", costPrice: 1.0, sellingPrice: 2.0 },
-  { name: "Hand Sanitizer 250ml", sku: "SANIT-250", barcode: "6001234000016", costPrice: 2.5, sellingPrice: 4.5 },
-  { name: "Dishwashing Liquid 500ml", sku: "DISH-500", barcode: "6001234000017", costPrice: 1.8, sellingPrice: 3.5 },
-  { name: "Freezer Bag (Large, 10pk)", sku: "FBAG-L10", barcode: "6001234000018", costPrice: 1.5, sellingPrice: 3.0 },
-  { name: "Ice Pack 1kg", sku: "ICPK-1000", barcode: "6001234000019", costPrice: 3.0, sellingPrice: 6.0 },
-  { name: "Sugar 1kg", sku: "SUGR-1000", barcode: "6001234000020", costPrice: 1.0, sellingPrice: 2.0 },
 ];
 
 // ─── Main ─────────────────────────────────────────────────────────────────────
@@ -166,6 +142,17 @@ async function main() {
       },
     },
   });
+  const kitchenPermission = allPermissions.find(
+    (permission) => permission.resource === "kitchen_inventory" && permission.action === "manage"
+  );
+  if (!kitchenPermission) throw new Error("Kitchen Inventory permission was not seeded");
+  for (const role of [adminRole, managerRole]) {
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: role.id, permissionId: kitchenPermission.id } },
+      update: {},
+      create: { roleId: role.id, permissionId: kitchenPermission.id },
+    });
+  }
   void managerRole;
   void staffRole;
 
@@ -186,7 +173,7 @@ async function main() {
 
   // 4. Locations
   console.log("  Creating locations...");
-  const warehouse = await prisma.location.upsert({
+  await prisma.location.upsert({
     where: { code: "WH-MAIN" },
     update: {},
     create: { name: "Main Warehouse", code: "WH-MAIN", isWarehouse: true, address: "123 Cooler City Rd" },
@@ -209,82 +196,32 @@ async function main() {
 
   // 5. Catalogue — category, brand, unit
   console.log("  Creating catalogue setup...");
-  const beverageCategory = await prisma.category.upsert({
+  await prisma.category.upsert({
     where: { name: "Beverages" },
     update: {},
     create: { name: "Beverages" },
   });
-  const snackCategory = await prisma.category.upsert({
+  await prisma.category.upsert({
     where: { name: "Snacks & Confectionery" },
     update: {},
     create: { name: "Snacks & Confectionery" },
   });
-  const supplyCategory = await prisma.category.upsert({
+  await prisma.category.upsert({
     where: { name: "Consumable Supplies" },
     update: {},
     create: { name: "Consumable Supplies" },
   });
-  const groceryCategory = await prisma.category.upsert({
+  await prisma.category.upsert({
     where: { name: "Grocery & Dry Goods" },
     update: {},
     create: { name: "Grocery & Dry Goods" },
   });
 
-  const pcsUnit = await prisma.unit.upsert({
+  await prisma.unit.upsert({
     where: { abbreviation: "pcs" },
     update: {},
     create: { name: "Piece", abbreviation: "pcs" },
   });
-
-  // 6. Sample products
-  console.log("  Creating 20 sample products...");
-  const categoryMap: Record<string, string> = {
-    "BVWT-500": beverageCategory.id,
-    "BVWT-1000": beverageCategory.id,
-    "COLA-330C": beverageCategory.id,
-    "COLA-1500P": beverageCategory.id,
-    "SPRT-330C": beverageCategory.id,
-    "OJ-1000": beverageCategory.id,
-    "ENRG-250": beverageCategory.id,
-    "ICT-500": beverageCategory.id,
-    "CHOC-50": snackCategory.id,
-    "CHIP-100": snackCategory.id,
-    "NDLE-CHK": groceryCategory.id,
-    "TUNA-185": groceryCategory.id,
-    "DCUP-8-50": supplyCategory.id,
-    "PSTR-200": supplyCategory.id,
-    "NAPK-500": supplyCategory.id,
-    "SANIT-250": supplyCategory.id,
-    "DISH-500": supplyCategory.id,
-    "FBAG-L10": supplyCategory.id,
-    "ICPK-1000": supplyCategory.id,
-    "SUGR-1000": groceryCategory.id,
-  };
-
-  for (const product of SAMPLE_PRODUCTS) {
-    const created = await prisma.product.upsert({
-      where: { sku: product.sku },
-      update: {},
-      create: {
-        name: product.name,
-        sku: product.sku,
-        barcode: product.barcode,
-        costPrice: product.costPrice,
-        sellingPrice: product.sellingPrice,
-        reorderPoint: 10,
-        unitId: pcsUnit.id,
-        categoryId: categoryMap[product.sku],
-        isActive: true,
-      },
-    });
-
-    // Set opening stock in main warehouse
-    await prisma.stock.upsert({
-      where: { productId_locationId: { productId: created.id, locationId: warehouse.id } },
-      update: {},
-      create: { productId: created.id, locationId: warehouse.id, quantity: 50 },
-    });
-  }
 
   // 7. Sequences
   console.log("  Creating sequences...");

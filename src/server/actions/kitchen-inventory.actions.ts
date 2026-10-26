@@ -4,13 +4,13 @@ import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
-import { requirePermission } from "@/lib/permissions";
+import { hasKitchenInventoryPermission } from "@/lib/permissions";
 import { prisma } from "@/lib/prisma";
 
 const quantitySchema = z.number().finite().positive().max(999999999);
 const issueSchema = z.object({
   productId: z.string().min(1),
-  locationId: z.string().min(1),
+  receiverName: z.string().trim().min(1).max(120),
   quantity: quantitySchema,
   notes: z.string().trim().max(500).optional(),
 });
@@ -18,6 +18,7 @@ const returnSchema = z.object({
   issueId: z.string().min(1),
   quantity: quantitySchema,
 });
+const MAIN_WAREHOUSE_CODE = "WH-MAIN";
 
 function validatePrecision(quantity: number) {
   if (new Prisma.Decimal(quantity).decimalPlaces() > 4) {
@@ -38,11 +39,10 @@ function handleTransactionError(error: unknown) {
 
 export async function issueToKitchen(data: {
   productId: string;
-  locationId: string;
+  receiverName: string;
   quantity: number;
   notes?: string;
 }) {
-  await requirePermission("stock", "adjust");
   const parsed = issueSchema.safeParse(data);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid kitchen issue details" };
@@ -53,28 +53,39 @@ export async function issueToKitchen(data: {
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return { success: false, error: "You must be signed in to issue stock" };
+  if (!(await hasKitchenInventoryPermission(userId))) {
+    return { success: false, error: "You do not have permission to manage kitchen inventory" };
+  }
 
   const quantity = new Prisma.Decimal(parsed.data.quantity);
   try {
     await prisma.$transaction(async (transaction) => {
       const [product, location, stock] = await Promise.all([
         transaction.product.findUnique({ where: { id: parsed.data.productId }, select: { id: true, isActive: true } }),
-        transaction.location.findUnique({ where: { id: parsed.data.locationId }, select: { id: true, isActive: true } }),
-        transaction.stock.findUnique({
-          where: { productId_locationId: { productId: parsed.data.productId, locationId: parsed.data.locationId } },
-          select: { quantity: true },
+        transaction.location.findUnique({
+          where: { code: MAIN_WAREHOUSE_CODE },
+          select: { id: true, isActive: true, isWarehouse: true },
+        }),
+        transaction.stock.findFirst({
+          where: {
+            productId: parsed.data.productId,
+            location: { code: MAIN_WAREHOUSE_CODE, isActive: true, isWarehouse: true },
+          },
+          select: { quantity: true, locationId: true },
         }),
       ]);
       if (!product?.isActive) throw new Error("Selected product was not found or is inactive");
-      if (!location?.isActive) throw new Error("Selected location was not found or is inactive");
+      if (!location?.isActive || !location.isWarehouse) {
+        throw new Error("The active main warehouse (WH-MAIN) was not found");
+      }
       if (!stock || stock.quantity.lessThan(quantity)) {
-        throw new Error("The selected location does not have enough stock");
+        throw new Error("The main warehouse does not have enough stock");
       }
 
       const update = await transaction.stock.updateMany({
         where: {
           productId: parsed.data.productId,
-          locationId: parsed.data.locationId,
+          locationId: location.id,
           quantity: { gte: quantity },
         },
         data: { quantity: { decrement: quantity } },
@@ -85,7 +96,8 @@ export async function issueToKitchen(data: {
       const issue = await transaction.kitchenIssue.create({
         data: {
           productId: parsed.data.productId,
-          locationId: parsed.data.locationId,
+          locationId: location.id,
+          receiverName: parsed.data.receiverName,
           issuedQuantity: quantity,
           notes: parsed.data.notes || null,
           createdById: userId,
@@ -94,13 +106,15 @@ export async function issueToKitchen(data: {
       await transaction.stockLedger.create({
         data: {
           productId: parsed.data.productId,
-          locationId: parsed.data.locationId,
+          locationId: location.id,
           movementType: "KITCHEN_ISSUE",
           quantityOut: quantity,
           balanceAfter,
           referenceType: "KITCHEN_ISSUE",
           referenceId: issue.id,
-          note: parsed.data.notes || "Issued to kitchen",
+          note: parsed.data.notes
+            ? `Issued to ${parsed.data.receiverName}: ${parsed.data.notes}`
+            : `Issued to ${parsed.data.receiverName}`,
           createdById: userId,
         },
       });
@@ -117,7 +131,6 @@ export async function issueToKitchen(data: {
 }
 
 export async function returnFromKitchen(data: { issueId: string; quantity: number }) {
-  await requirePermission("stock", "adjust");
   const parsed = returnSchema.safeParse(data);
   if (!parsed.success) {
     return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid kitchen return details" };
@@ -128,6 +141,9 @@ export async function returnFromKitchen(data: { issueId: string; quantity: numbe
   const session = await auth();
   const userId = session?.user?.id;
   if (!userId) return { success: false, error: "You must be signed in to return stock" };
+  if (!(await hasKitchenInventoryPermission(userId))) {
+    return { success: false, error: "You do not have permission to manage kitchen inventory" };
+  }
 
   const quantity = new Prisma.Decimal(parsed.data.quantity);
   try {

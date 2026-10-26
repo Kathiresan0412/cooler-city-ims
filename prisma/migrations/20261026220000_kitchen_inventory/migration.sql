@@ -5,6 +5,7 @@ CREATE TABLE "kitchen_issues" (
     "id" TEXT NOT NULL,
     "productId" TEXT NOT NULL,
     "locationId" TEXT NOT NULL,
+    "receiverName" TEXT NOT NULL,
     "issuedQuantity" DECIMAL(12,4) NOT NULL,
     "returnedQuantity" DECIMAL(12,4) NOT NULL DEFAULT 0,
     "notes" TEXT,

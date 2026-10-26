@@ -8,12 +8,14 @@ import { usePermission } from "@/hooks/use-permission";
 import { siteConfig } from "@/config/site";
 import { ScrollArea } from "@/components/ui/scroll-area";
 
-export function Sidebar() {
+export function Sidebar({ canManageKitchenInventory }: { canManageKitchenInventory: boolean }) {
   const pathname = usePathname();
   const { can } = usePermission();
 
   const visibleItems = navItems.filter(
-    (item) => !item.permission || can(item.permission.resource, item.permission.action)
+    (item) => item.permission?.resource === "kitchen_inventory"
+      ? canManageKitchenInventory
+      : !item.permission || can(item.permission.resource, item.permission.action)
   );
 
   return (

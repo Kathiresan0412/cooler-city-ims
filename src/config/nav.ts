@@ -20,7 +20,7 @@ export const navItems: NavItem[] = [
   // { href: "/returns", label: "Returns", icon: PackagePlus },
   // { href: "/transfers", label: "Transfers", icon: ArrowLeftRight },
   { href: "/stock", label: "Stock", icon: Warehouse },
-  { href: "/kitchen-inventory", label: "Kitchen Inventory", icon: ChefHat, permission: { resource: "stock", action: "read" } },
+  { href: "/kitchen-inventory", label: "Kitchen Inventory", icon: ChefHat, permission: { resource: "kitchen_inventory", action: "manage" } },
   // { href: "/stock-take", label: "Stock Take", icon: ClipboardList },
   // { href: "/locations", label: "Locations", icon: Building2 },
   // { href: "/brands", label: "Brands", icon: FolderOpen },

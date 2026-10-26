@@ -11,13 +11,15 @@ import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetTrigger } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 
-export function MobileNav() {
+export function MobileNav({ canManageKitchenInventory }: { canManageKitchenInventory: boolean }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
   const { can } = usePermission();
 
   const visibleItems = navItems.filter(
-    (item) => !item.permission || can(item.permission.resource, item.permission.action)
+    (item) => item.permission?.resource === "kitchen_inventory"
+      ? canManageKitchenInventory
+      : !item.permission || can(item.permission.resource, item.permission.action)
   );
 
   return (
