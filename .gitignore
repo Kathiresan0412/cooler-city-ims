@@ -36,6 +36,10 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
-
-# prisma
+# Keep generated database migrations out of the default changeset, but track
+# the Kitchen Inventory migration required by this feature.
 prisma/migrations/
+!prisma/migrations/
+prisma/migrations/*
+!prisma/migrations/20261026220000_kitchen_inventory/
+!prisma/migrations/20261026220000_kitchen_inventory/migration.sql

@@ -6,20 +6,8 @@ import { Loader2, PackagePlus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import {
-  AlertDialog,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
+import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue,} from "@/components/ui/select";
+import {AlertDialog,AlertDialogCancel,AlertDialogContent,AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { useToast } from "@/components/ui/use-toast";
@@ -200,7 +188,7 @@ export function CurrentStockManager({ products, locations }: CurrentStockManager
 
             <div className="space-y-2">
               <Label>Location for quantity change</Label>
-              <Select value={locationId || undefined} onValueChange={setLocationId} disabled={isSaving}>
+              <Select value={locationId || undefined} onValueChange={setLocationId} disabled={true}>
                 <SelectTrigger><SelectValue placeholder="Select location" /></SelectTrigger>
                 <SelectContent>
                   {locations.map((location) => (

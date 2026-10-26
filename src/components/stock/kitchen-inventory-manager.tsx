@@ -1,0 +1,253 @@
+"use client";
+
+import { useMemo, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { formatDate } from "@/lib/format";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { useToast } from "@/components/ui/use-toast";
+import { issueToKitchen, returnFromKitchen } from "@/server/actions/kitchen-inventory.actions";
+
+interface ProductOption {
+  id: string;
+  name: string;
+  sku: string;
+  unitAbbreviation: string | null;
+  stockByLocation: { locationId: string; quantity: number }[];
+}
+
+interface LocationOption {
+  id: string;
+  name: string;
+}
+
+interface KitchenIssueRow {
+  id: string;
+  productName: string;
+  sku: string;
+  unitAbbreviation: string | null;
+  locationName: string;
+  issuedQuantity: number;
+  returnedQuantity: number;
+  remainingQuantity: number;
+  notes: string | null;
+  createdByName: string | null;
+  createdAt: Date;
+}
+
+interface KitchenInventoryManagerProps {
+  products: ProductOption[];
+  locations: LocationOption[];
+  issues: KitchenIssueRow[];
+}
+
+export function KitchenInventoryManager({ products, locations, issues }: KitchenInventoryManagerProps) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [productId, setProductId] = useState("");
+  const [locationId, setLocationId] = useState("");
+  const [quantity, setQuantity] = useState("");
+  const [notes, setNotes] = useState("");
+  const [returnQuantities, setReturnQuantities] = useState<Record<string, string>>({});
+  const [isSaving, setIsSaving] = useState(false);
+
+  const selectedProduct = useMemo(
+    () => products.find((product) => product.id === productId),
+    [products, productId]
+  );
+  const availableQuantity = selectedProduct?.stockByLocation.find((stock) => stock.locationId === locationId)?.quantity ?? 0;
+
+  async function handleIssue(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const parsedQuantity = Number(quantity);
+    if (!productId || !locationId || !quantity.trim() || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      toast({ title: "Missing or invalid information", description: "Select a product and location, then enter a quantity greater than zero.", variant: "destructive" });
+      return;
+    }
+    if (parsedQuantity > availableQuantity) {
+      toast({ title: "Not enough stock", description: `Only ${availableQuantity} is available at this location.`, variant: "destructive" });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const result = await issueToKitchen({ productId, locationId, quantity: parsedQuantity, notes });
+      if (!result.success) {
+        toast({ title: "Could not issue stock", description: result.error, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Stock issued to kitchen" });
+      setProductId("");
+      setLocationId("");
+      setQuantity("");
+      setNotes("");
+      router.refresh();
+    } catch {
+      toast({ title: "Could not issue stock", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  async function handleReturn(issueId: string) {
+    const parsedQuantity = Number(returnQuantities[issueId]);
+    const issue = issues.find((entry) => entry.id === issueId);
+    if (!issue || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      toast({ title: "Invalid return quantity", description: "Enter a quantity greater than zero.", variant: "destructive" });
+      return;
+    }
+    if (parsedQuantity > issue.remainingQuantity) {
+      toast({ title: "Return exceeds outstanding quantity", description: `Only ${issue.remainingQuantity} can be returned for this issue.`, variant: "destructive" });
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      const result = await returnFromKitchen({ issueId, quantity: parsedQuantity });
+      if (!result.success) {
+        toast({ title: "Could not return stock", description: result.error, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Kitchen stock returned" });
+      setReturnQuantities((current) => ({ ...current, [issueId]: "" }));
+      router.refresh();
+    } catch {
+      toast({ title: "Could not return stock", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setIsSaving(false);
+    }
+  }
+
+  return (
+    <div className="space-y-6">
+      <section className="rounded-md border p-4">
+        <h2 className="text-lg font-semibold">Issue stock to kitchen</h2>
+        <form onSubmit={handleIssue} className="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+          <div className="space-y-2 lg:col-span-2">
+            <Label htmlFor="kitchen-product">Product</Label>
+            <Select value={productId || undefined} onValueChange={setProductId} disabled={isSaving}>
+              <SelectTrigger id="kitchen-product"><SelectValue placeholder="Select product" /></SelectTrigger>
+              <SelectContent>
+                {products.map((product) => (
+                  <SelectItem key={product.id} value={product.id}>{product.name} ({product.sku})</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="kitchen-location">Stock location</Label>
+            <Select value={locationId || undefined} onValueChange={setLocationId} disabled={isSaving}>
+              <SelectTrigger id="kitchen-location"><SelectValue placeholder="Select location" /></SelectTrigger>
+              <SelectContent>
+                {locations.map((location) => (
+                  <SelectItem key={location.id} value={location.id}>{location.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="kitchen-quantity">Quantity</Label>
+            <Input
+              id="kitchen-quantity"
+              type="number"
+              min="0.0001"
+              step="0.0001"
+              value={quantity}
+              onChange={(event) => setQuantity(event.target.value)}
+              disabled={isSaving}
+            />
+            {selectedProduct && locationId && (
+              <p className="text-xs text-muted-foreground">
+                Available: {availableQuantity} {selectedProduct.unitAbbreviation ?? ""}
+              </p>
+            )}
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="kitchen-notes">Notes</Label>
+            <Input
+              id="kitchen-notes"
+              maxLength={500}
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="Optional"
+              disabled={isSaving}
+            />
+          </div>
+          <div className="sm:col-span-2 lg:col-span-5">
+            <Button type="submit" disabled={isSaving || products.length === 0 || locations.length === 0}>
+              {isSaving ? "Saving..." : "Issue to Kitchen"}
+            </Button>
+          </div>
+        </form>
+        {(products.length === 0 || locations.length === 0) && (
+          <p className="mt-3 text-sm text-destructive">
+            {products.length === 0 ? "Add an active product before issuing stock." : "Add an active location before issuing stock."}
+          </p>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">Kitchen issue history</h2>
+        <div className="overflow-x-auto rounded-md border">
+          <table className="w-full min-w-[900px] text-sm">
+            <thead className="border-b bg-muted/50">
+              <tr>
+                <th className="px-4 py-3 text-left font-medium">Date</th>
+                <th className="px-4 py-3 text-left font-medium">Product</th>
+                <th className="px-4 py-3 text-left font-medium">Location</th>
+                <th className="px-4 py-3 text-right font-medium">Issued</th>
+                <th className="px-4 py-3 text-right font-medium">Returned</th>
+                <th className="px-4 py-3 text-right font-medium">Outstanding</th>
+                <th className="px-4 py-3 text-left font-medium">Notes</th>
+                <th className="px-4 py-3 text-left font-medium">Return</th>
+              </tr>
+            </thead>
+            <tbody>
+              {issues.map((issue) => (
+                <tr key={issue.id} className="border-b last:border-0">
+                  <td className="px-4 py-3">{formatDate(issue.createdAt)}</td>
+                  <td className="px-4 py-3">
+                    <div className="font-medium">{issue.productName}</div>
+                    <div className="text-xs text-muted-foreground">{issue.sku}</div>
+                  </td>
+                  <td className="px-4 py-3">{issue.locationName}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{issue.issuedQuantity} {issue.unitAbbreviation ?? ""}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{issue.returnedQuantity}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{issue.remainingQuantity}</td>
+                  <td className="px-4 py-3">{issue.notes || "—"}</td>
+                  <td className="px-4 py-3">
+                    {issue.remainingQuantity > 0 ? (
+                      <div className="flex items-center gap-2">
+                        <Input
+                          aria-label={`Return quantity for ${issue.productName}`}
+                          className="w-24"
+                          type="number"
+                          min="0.0001"
+                          max={issue.remainingQuantity}
+                          step="0.0001"
+                          value={returnQuantities[issue.id] ?? ""}
+                          onChange={(event) => setReturnQuantities((current) => ({ ...current, [issue.id]: event.target.value }))}
+                          disabled={isSaving}
+                        />
+                        <Button type="button" variant="outline" size="sm" onClick={() => handleReturn(issue.id)} disabled={isSaving}>
+                          Return
+                        </Button>
+                      </div>
+                    ) : (
+                      <span className="text-muted-foreground">Complete</span>
+                    )}
+                  </td>
+                </tr>
+              ))}
+              {issues.length === 0 && (
+                <tr><td colSpan={8} className="px-4 py-8 text-center text-muted-foreground">No kitchen issues yet.</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </section>
+    </div>
+  );
+}

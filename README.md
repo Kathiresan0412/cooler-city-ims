@@ -47,6 +47,8 @@ npm run dev
 - `src/config/` — Navigation and site configuration
 - `prisma/` — Database schema, migrations, and seed data
 
+Kitchen Inventory lets staff issue products from a stock location and record full or partial returns. Issued and returned quantities are reflected in the stock ledger.
+
 ## Roles & Permissions
 
 Roles and permissions are stored in the database and checked at both the middleware and server action level. The `can()` helper in `src/lib/permissions.ts` is the single source of truth.

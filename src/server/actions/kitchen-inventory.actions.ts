@@ -1,0 +1,188 @@
+"use server";
+
+import { Prisma } from "@prisma/client";
+import { revalidatePath } from "next/cache";
+import { z } from "zod";
+import { auth } from "@/lib/auth";
+import { requirePermission } from "@/lib/permissions";
+import { prisma } from "@/lib/prisma";
+
+const quantitySchema = z.number().finite().positive().max(999999999);
+const issueSchema = z.object({
+  productId: z.string().min(1),
+  locationId: z.string().min(1),
+  quantity: quantitySchema,
+  notes: z.string().trim().max(500).optional(),
+});
+const returnSchema = z.object({
+  issueId: z.string().min(1),
+  quantity: quantitySchema,
+});
+
+function validatePrecision(quantity: number) {
+  if (new Prisma.Decimal(quantity).decimalPlaces() > 4) {
+    return "Quantity supports up to 4 decimal places";
+  }
+  return null;
+}
+
+function handleTransactionError(error: unknown) {
+  if (error instanceof Error && !(error instanceof Prisma.PrismaClientKnownRequestError)) {
+    return { success: false as const, error: error.message };
+  }
+  if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") {
+    return { success: false as const, error: "Stock changed while saving. Refresh and try again." };
+  }
+  throw error;
+}
+
+export async function issueToKitchen(data: {
+  productId: string;
+  locationId: string;
+  quantity: number;
+  notes?: string;
+}) {
+  await requirePermission("stock", "adjust");
+  const parsed = issueSchema.safeParse(data);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid kitchen issue details" };
+  }
+  const precisionError = validatePrecision(parsed.data.quantity);
+  if (precisionError) return { success: false, error: precisionError };
+
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { success: false, error: "You must be signed in to issue stock" };
+
+  const quantity = new Prisma.Decimal(parsed.data.quantity);
+  try {
+    await prisma.$transaction(async (transaction) => {
+      const [product, location, stock] = await Promise.all([
+        transaction.product.findUnique({ where: { id: parsed.data.productId }, select: { id: true, isActive: true } }),
+        transaction.location.findUnique({ where: { id: parsed.data.locationId }, select: { id: true, isActive: true } }),
+        transaction.stock.findUnique({
+          where: { productId_locationId: { productId: parsed.data.productId, locationId: parsed.data.locationId } },
+          select: { quantity: true },
+        }),
+      ]);
+      if (!product?.isActive) throw new Error("Selected product was not found or is inactive");
+      if (!location?.isActive) throw new Error("Selected location was not found or is inactive");
+      if (!stock || stock.quantity.lessThan(quantity)) {
+        throw new Error("The selected location does not have enough stock");
+      }
+
+      const update = await transaction.stock.updateMany({
+        where: {
+          productId: parsed.data.productId,
+          locationId: parsed.data.locationId,
+          quantity: { gte: quantity },
+        },
+        data: { quantity: { decrement: quantity } },
+      });
+      if (update.count !== 1) throw new Error("Stock changed while saving. Refresh and try again.");
+
+      const balanceAfter = stock.quantity.sub(quantity);
+      const issue = await transaction.kitchenIssue.create({
+        data: {
+          productId: parsed.data.productId,
+          locationId: parsed.data.locationId,
+          issuedQuantity: quantity,
+          notes: parsed.data.notes || null,
+          createdById: userId,
+        },
+      });
+      await transaction.stockLedger.create({
+        data: {
+          productId: parsed.data.productId,
+          locationId: parsed.data.locationId,
+          movementType: "KITCHEN_ISSUE",
+          quantityOut: quantity,
+          balanceAfter,
+          referenceType: "KITCHEN_ISSUE",
+          referenceId: issue.id,
+          note: parsed.data.notes || "Issued to kitchen",
+          createdById: userId,
+        },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  } catch (error) {
+    return handleTransactionError(error);
+  }
+
+  revalidatePath("/kitchen-inventory");
+  revalidatePath("/stock");
+  revalidatePath("/");
+  revalidatePath("/products");
+  return { success: true, error: null };
+}
+
+export async function returnFromKitchen(data: { issueId: string; quantity: number }) {
+  await requirePermission("stock", "adjust");
+  const parsed = returnSchema.safeParse(data);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid kitchen return details" };
+  }
+  const precisionError = validatePrecision(parsed.data.quantity);
+  if (precisionError) return { success: false, error: precisionError };
+
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { success: false, error: "You must be signed in to return stock" };
+
+  const quantity = new Prisma.Decimal(parsed.data.quantity);
+  try {
+    await prisma.$transaction(async (transaction) => {
+      const issue = await transaction.kitchenIssue.findUnique({
+        where: { id: parsed.data.issueId },
+        select: {
+          id: true,
+          productId: true,
+          locationId: true,
+          issuedQuantity: true,
+          returnedQuantity: true,
+        },
+      });
+      if (!issue) throw new Error("Kitchen issue was not found");
+      if (issue.returnedQuantity.add(quantity).greaterThan(issue.issuedQuantity)) {
+        throw new Error("Return quantity exceeds the amount still outstanding");
+      }
+
+      const update = await transaction.kitchenIssue.updateMany({
+        where: {
+          id: issue.id,
+          returnedQuantity: { lte: issue.issuedQuantity.sub(quantity) },
+        },
+        data: { returnedQuantity: { increment: quantity } },
+      });
+      if (update.count !== 1) throw new Error("Kitchen issue changed while saving. Refresh and try again.");
+
+      const stock = await transaction.stock.upsert({
+        where: { productId_locationId: { productId: issue.productId, locationId: issue.locationId } },
+        create: { productId: issue.productId, locationId: issue.locationId, quantity },
+        update: { quantity: { increment: quantity } },
+        select: { quantity: true },
+      });
+      await transaction.stockLedger.create({
+        data: {
+          productId: issue.productId,
+          locationId: issue.locationId,
+          movementType: "KITCHEN_RETURN",
+          quantityIn: quantity,
+          balanceAfter: stock.quantity,
+          referenceType: "KITCHEN_ISSUE",
+          referenceId: issue.id,
+          note: "Returned from kitchen",
+          createdById: userId,
+        },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  } catch (error) {
+    return handleTransactionError(error);
+  }
+
+  revalidatePath("/kitchen-inventory");
+  revalidatePath("/stock");
+  revalidatePath("/");
+  revalidatePath("/products");
+  return { success: true, error: null };
+}

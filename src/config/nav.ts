@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BarChart3, Box, Building2, ClipboardList, FileText, FolderOpen, Home, Package, PackageCheck, PackagePlus, Settings, ShieldCheck, Truck, Users, Warehouse, ArrowLeftRight, BellRing, ScanLine } from "lucide-react";
+import { BarChart3, Box, Building2, ChefHat, ClipboardList, FileText, FolderOpen, Home, Package, PackageCheck, PackagePlus, Settings, ShieldCheck, Truck, Users, Warehouse, ArrowLeftRight, BellRing, ScanLine } from "lucide-react";
 
 export type NavItem = {
   href: string;
@@ -20,6 +20,7 @@ export const navItems: NavItem[] = [
   // { href: "/returns", label: "Returns", icon: PackagePlus },
   // { href: "/transfers", label: "Transfers", icon: ArrowLeftRight },
   { href: "/stock", label: "Stock", icon: Warehouse },
+  { href: "/kitchen-inventory", label: "Kitchen Inventory", icon: ChefHat, permission: { resource: "stock", action: "read" } },
   // { href: "/stock-take", label: "Stock Take", icon: ClipboardList },
   // { href: "/locations", label: "Locations", icon: Building2 },
   // { href: "/brands", label: "Brands", icon: FolderOpen },

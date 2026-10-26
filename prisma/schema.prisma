@@ -58,7 +58,7 @@ model User {
   passwordHash  String?
   isActive      Boolean   @default(true)
   roleId        String?
-  locationId    String?   // default location for this user
+  locationId    String? // default location for this user
 
   role     Role?     @relation(fields: [roleId], references: [id])
   location Location? @relation(fields: [locationId], references: [id])
@@ -66,15 +66,16 @@ model User {
   accounts Account[]
   sessions Session[]
 
-  createdGRNs       GRN[]
-  createdTransfers  Transfer[]
-  createdRequests   StockRequest[]
-  createdPOs        PurchaseOrder[]
-  createdSales      Sale[]
-  createdAdjustments StockAdjustment[]
-  createdStockTakes StockTake[]
-  auditLogs         AuditLog[]
-  notifications     Notification[]
+  createdGRNs          GRN[]
+  createdTransfers     Transfer[]
+  createdRequests      StockRequest[]
+  createdPOs           PurchaseOrder[]
+  createdSales         Sale[]
+  createdAdjustments   StockAdjustment[]
+  createdStockTakes    StockTake[]
+  createdKitchenIssues KitchenIssue[]
+  auditLogs            AuditLog[]
+  notifications        Notification[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -83,10 +84,10 @@ model User {
 }
 
 model Role {
-  id          String   @id @default(cuid())
-  name        String   @unique
+  id          String  @id @default(cuid())
+  name        String  @unique
   description String?
-  isSystem    Boolean  @default(false) // cannot be deleted
+  isSystem    Boolean @default(false) // cannot be deleted
 
   users       User[]
   permissions RolePermission[]
@@ -130,13 +131,14 @@ model Location {
   isActive    Boolean @default(true)
   isWarehouse Boolean @default(false)
 
-  users        User[]
-  stockEntries Stock[]
-  fromTransfers Transfer[] @relation("FromLocation")
-  toTransfers   Transfer[] @relation("ToLocation")
+  users         User[]
+  stockEntries  Stock[]
+  fromTransfers Transfer[]        @relation("FromLocation")
+  toTransfers   Transfer[]        @relation("ToLocation")
   grnItems      GRNItem[]
   adjustments   StockAdjustment[]
   stockTakes    StockTake[]
+  kitchenIssues KitchenIssue[]
   saleItems     SaleItem[]
 
   createdAt DateTime @default(now())
@@ -148,11 +150,11 @@ model Location {
 // ─── Catalogue ───────────────────────────────────────────────────────────────
 
 model Category {
-  id          String    @id @default(cuid())
-  name        String    @unique
+  id          String     @id @default(cuid())
+  name        String     @unique
   description String?
   parentId    String?
-  parent      Category? @relation("CategoryTree", fields: [parentId], references: [id])
+  parent      Category?  @relation("CategoryTree", fields: [parentId], references: [id])
   children    Category[] @relation("CategoryTree")
   products    Product[]
 
@@ -186,21 +188,21 @@ model Unit {
 }
 
 model Product {
-  id              String   @id @default(cuid())
-  name            String
-  sku             String   @unique
-  barcode         String?  @unique
-  description     String?
-  imageUrl        String?
-  categoryId      String?
-  brandId         String?
-  unitId          String?
-  costPrice       Decimal  @default(0) @db.Decimal(12, 4)
-  sellingPrice    Decimal  @default(0) @db.Decimal(12, 4)
-  reorderPoint    Int      @default(0)
-  isActive        Boolean  @default(true)
-  isSerialized    Boolean  @default(false) // track by serial number
-  hasVariants     Boolean  @default(false)
+  id           String  @id @default(cuid())
+  name         String
+  sku          String  @unique
+  barcode      String? @unique
+  description  String?
+  imageUrl     String?
+  categoryId   String?
+  brandId      String?
+  unitId       String?
+  costPrice    Decimal @default(0) @db.Decimal(12, 4)
+  sellingPrice Decimal @default(0) @db.Decimal(12, 4)
+  reorderPoint Int     @default(0)
+  isActive     Boolean @default(true)
+  isSerialized Boolean @default(false) // track by serial number
+  hasVariants  Boolean @default(false)
 
   category Category? @relation(fields: [categoryId], references: [id])
   brand    Brand?    @relation(fields: [brandId], references: [id])
@@ -217,6 +219,7 @@ model Product {
   returnItems     ReturnItem[]
   adjustmentItems AdjustmentItem[]
   stockTakeItems  StockTakeItem[]
+  kitchenIssues   KitchenIssue[]
   serialNumbers   SerialNumber[]
 
   createdAt DateTime @default(now())
@@ -228,7 +231,7 @@ model Product {
 model ProductVariant {
   id        String  @id @default(cuid())
   productId String
-  name      String  // e.g. "Red / Large"
+  name      String // e.g. "Red / Large"
   sku       String  @unique
   barcode   String? @unique
   costPrice Decimal @default(0) @db.Decimal(12, 4)
@@ -242,10 +245,10 @@ model ProductVariant {
 }
 
 model SerialNumber {
-  id        String             @id @default(cuid())
-  serial    String             @unique
-  productId String
-  status    SerialNumberStatus @default(IN_STOCK)
+  id         String             @id @default(cuid())
+  serial     String             @unique
+  productId  String
+  status     SerialNumberStatus @default(IN_STOCK)
   locationId String?
 
   product Product @relation(fields: [productId], references: [id])
@@ -281,19 +284,19 @@ model Stock {
 }
 
 model StockLedger {
-  id            String          @id @default(cuid())
+  id            String       @id @default(cuid())
   productId     String
   locationId    String
   movementType  MovementType
-  quantityIn    Decimal         @default(0) @db.Decimal(12, 4)
-  quantityOut   Decimal         @default(0) @db.Decimal(12, 4)
-  balanceAfter  Decimal         @db.Decimal(12, 4)
-  referenceType String?         // "GRN" | "TRANSFER" | "SALE" | "ADJUSTMENT" | "RETURN" | "OPENING"
+  quantityIn    Decimal      @default(0) @db.Decimal(12, 4)
+  quantityOut   Decimal      @default(0) @db.Decimal(12, 4)
+  balanceAfter  Decimal      @db.Decimal(12, 4)
+  referenceType String? // "GRN" | "TRANSFER" | "SALE" | "ADJUSTMENT" | "RETURN" | "OPENING"
   referenceId   String?
   note          String?
   createdById   String?
 
-  product  Product @relation(fields: [productId], references: [id])
+  product Product @relation(fields: [productId], references: [id])
 
   createdAt DateTime @default(now())
 
@@ -310,6 +313,8 @@ enum MovementType {
   ADJUSTMENT_ADD
   ADJUSTMENT_REMOVE
   STOCK_TAKE_ADJUST
+  KITCHEN_ISSUE
+  KITCHEN_RETURN
 }
 
 // ─── GRN (Goods Received Note) ───────────────────────────────────────────────
@@ -322,7 +327,7 @@ model GRN {
   receivedDate DateTime  @default(now())
   createdById  String?
 
-  createdBy User?    @relation(fields: [createdById], references: [id])
+  createdBy User?     @relation(fields: [createdById], references: [id])
   items     GRNItem[]
 
   createdAt DateTime @default(now())
@@ -332,13 +337,13 @@ model GRN {
 }
 
 model GRNItem {
-  id        String  @id @default(cuid())
-  grnId     String
-  productId String
+  id         String  @id @default(cuid())
+  grnId      String
+  productId  String
   locationId String
-  quantity  Decimal @db.Decimal(12, 4)
-  unitCost  Decimal @db.Decimal(12, 4)
-  poItemId  String? // optional link to PO line
+  quantity   Decimal @db.Decimal(12, 4)
+  unitCost   Decimal @db.Decimal(12, 4)
+  poItemId   String? // optional link to PO line
 
   grn      GRN      @relation(fields: [grnId], references: [id], onDelete: Cascade)
   product  Product  @relation(fields: [productId], references: [id])
@@ -357,20 +362,20 @@ enum GRNStatus {
 // ─── Transfers ───────────────────────────────────────────────────────────────
 
 model Transfer {
-  id               String         @id @default(cuid())
-  transferNumber   String         @unique
-  fromLocationId   String
-  toLocationId     String
-  status           TransferStatus @default(DRAFT)
-  notes            String?
-  createdById      String?
-  approvedById     String?
-  dispatchedAt     DateTime?
-  receivedAt       DateTime?
+  id             String         @id @default(cuid())
+  transferNumber String         @unique
+  fromLocationId String
+  toLocationId   String
+  status         TransferStatus @default(DRAFT)
+  notes          String?
+  createdById    String?
+  approvedById   String?
+  dispatchedAt   DateTime?
+  receivedAt     DateTime?
 
-  fromLocation Location @relation("FromLocation", fields: [fromLocationId], references: [id])
-  toLocation   Location @relation("ToLocation", fields: [toLocationId], references: [id])
-  createdBy    User?    @relation(fields: [createdById], references: [id])
+  fromLocation Location       @relation("FromLocation", fields: [fromLocationId], references: [id])
+  toLocation   Location       @relation("ToLocation", fields: [toLocationId], references: [id])
+  createdBy    User?          @relation(fields: [createdById], references: [id])
   items        TransferItem[]
 
   createdAt DateTime @default(now())
@@ -380,11 +385,11 @@ model Transfer {
 }
 
 model TransferItem {
-  id           String  @id @default(cuid())
-  transferId   String
-  productId    String
-  quantity     Decimal @db.Decimal(12, 4)
-  receivedQty  Decimal @default(0) @db.Decimal(12, 4)
+  id          String  @id @default(cuid())
+  transferId  String
+  productId   String
+  quantity    Decimal @db.Decimal(12, 4)
+  receivedQty Decimal @default(0) @db.Decimal(12, 4)
 
   transfer Transfer @relation(fields: [transferId], references: [id], onDelete: Cascade)
   product  Product  @relation(fields: [productId], references: [id])
@@ -420,11 +425,11 @@ model StockRequest {
 }
 
 model RequestItem {
-  id          String  @id @default(cuid())
-  requestId   String
-  productId   String
-  quantity    Decimal @db.Decimal(12, 4)
-  issuedQty   Decimal @default(0) @db.Decimal(12, 4)
+  id        String  @id @default(cuid())
+  requestId String
+  productId String
+  quantity  Decimal @db.Decimal(12, 4)
+  issuedQty Decimal @default(0) @db.Decimal(12, 4)
 
   request StockRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
   product Product      @relation(fields: [productId], references: [id])
@@ -466,8 +471,8 @@ model POItem {
   receivedQty Decimal @default(0) @db.Decimal(12, 4)
   unitCost    Decimal @db.Decimal(12, 4)
 
-  po      PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
-  product Product       @relation(fields: [productId], references: [id])
+  po       PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
+  product  Product       @relation(fields: [productId], references: [id])
   grnItems GRNItem[]
 
   @@map("po_items")
@@ -523,8 +528,8 @@ enum SaleStatus {
 // ─── Returns ─────────────────────────────────────────────────────────────────
 
 model Return {
-  id           String       @id @default(cuid())
-  returnNumber String       @unique
+  id           String     @id @default(cuid())
+  returnNumber String     @unique
   type         ReturnType
   notes        String?
 
@@ -557,14 +562,14 @@ enum ReturnType {
 // ─── Stock Adjustments ────────────────────────────────────────────────────────
 
 model StockAdjustment {
-  id               String           @id @default(cuid())
-  adjustmentNumber String           @unique
+  id               String  @id @default(cuid())
+  adjustmentNumber String  @unique
   reason           String?
   createdById      String?
 
-  createdBy User?            @relation(fields: [createdById], references: [id])
-  items     AdjustmentItem[]
-  location  Location         @relation(fields: [locationId], references: [id])
+  createdBy  User?            @relation(fields: [createdById], references: [id])
+  items      AdjustmentItem[]
+  location   Location         @relation(fields: [locationId], references: [id])
   locationId String
 
   createdAt DateTime @default(now())
@@ -586,20 +591,40 @@ model AdjustmentItem {
   @@map("adjustment_items")
 }
 
+model KitchenIssue {
+  id               String  @id @default(cuid())
+  productId        String
+  locationId       String
+  issuedQuantity   Decimal @db.Decimal(12, 4)
+  returnedQuantity Decimal @default(0) @db.Decimal(12, 4)
+  notes            String?
+  createdById      String?
+
+  product   Product  @relation(fields: [productId], references: [id])
+  location  Location @relation(fields: [locationId], references: [id])
+  createdBy User?    @relation(fields: [createdById], references: [id])
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([createdAt])
+  @@map("kitchen_issues")
+}
+
 // ─── Stock Take ───────────────────────────────────────────────────────────────
 
 model StockTake {
-  id          String          @id @default(cuid())
-  reference   String          @unique
-  locationId  String
-  status      StockTakeStatus @default(IN_PROGRESS)
-  notes       String?
-  createdById String?
+  id           String          @id @default(cuid())
+  reference    String          @unique
+  locationId   String
+  status       StockTakeStatus @default(IN_PROGRESS)
+  notes        String?
+  createdById  String?
   approvedById String?
-  completedAt DateTime?
+  completedAt  DateTime?
 
-  location  Location      @relation(fields: [locationId], references: [id])
-  createdBy User?         @relation(fields: [createdById], references: [id])
+  location  Location        @relation(fields: [locationId], references: [id])
+  createdBy User?           @relation(fields: [createdById], references: [id])
   items     StockTakeItem[]
 
   createdAt DateTime @default(now())
@@ -609,13 +634,13 @@ model StockTake {
 }
 
 model StockTakeItem {
-  id           String  @id @default(cuid())
-  stockTakeId  String
-  productId    String
-  systemQty    Decimal @db.Decimal(12, 4)
-  countedQty   Decimal @db.Decimal(12, 4)
-  variance     Decimal @db.Decimal(12, 4) // countedQty - systemQty
-  note         String?
+  id          String  @id @default(cuid())
+  stockTakeId String
+  productId   String
+  systemQty   Decimal @db.Decimal(12, 4)
+  countedQty  Decimal @db.Decimal(12, 4)
+  variance    Decimal @db.Decimal(12, 4) // countedQty - systemQty
+  note        String?
 
   stockTake StockTake @relation(fields: [stockTakeId], references: [id], onDelete: Cascade)
   product   Product   @relation(fields: [productId], references: [id])
@@ -633,13 +658,13 @@ enum StockTakeStatus {
 // ─── Notifications ────────────────────────────────────────────────────────────
 
 model Notification {
-  id        String   @id @default(cuid())
-  userId    String
-  title     String
-  message   String
-  type      String   // "LOW_STOCK" | "TRANSFER" | "REQUEST" | "SYSTEM"
-  isRead    Boolean  @default(false)
-  link      String?  // deep link into the app
+  id      String  @id @default(cuid())
+  userId  String
+  title   String
+  message String
+  type    String // "LOW_STOCK" | "TRANSFER" | "REQUEST" | "SYSTEM"
+  isRead  Boolean @default(false)
+  link    String? // deep link into the app
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 
@@ -651,14 +676,14 @@ model Notification {
 // ─── Audit Logs ───────────────────────────────────────────────────────────────
 
 model AuditLog {
-  id          String @id @default(cuid())
-  userId      String?
-  action      String  // "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | ...
-  resource    String  // "Product" | "Transfer" | ...
-  resourceId  String?
-  oldData     Json?
-  newData     Json?
-  ipAddress   String?
+  id         String  @id @default(cuid())
+  userId     String?
+  action     String // "CREATE" | "UPDATE" | "DELETE" | "LOGIN" | ...
+  resource   String // "Product" | "Transfer" | ...
+  resourceId String?
+  oldData    Json?
+  newData    Json?
+  ipAddress  String?
 
   user User? @relation(fields: [userId], references: [id])
 
