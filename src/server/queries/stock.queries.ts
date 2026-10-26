@@ -1,80 +1,90 @@
+import { prisma } from "@/lib/prisma";
+
 export async function getLowStockProducts(limit = 10) {
-  return Array.from({ length: Math.min(limit, 5) }, (_, index) => ({
-    id: `product-${index + 1}`,
-    name: `Sample product ${index + 1}`,
-    sku: `SKU-${index + 1}`,
-    totalQty: 2 + index,
-  }));
+  const products = await prisma.product.findMany({
+    where: { isActive: true, reorderPoint: { gt: 0 } },
+    include: { stockEntries: { select: { quantity: true } } },
+  });
+
+  return products
+    .map((product) => ({
+      id: product.id,
+      name: product.name,
+      sku: product.sku,
+      totalQty: product.stockEntries.reduce((total, stock) => total + Number(stock.quantity), 0),
+      reorderPoint: product.reorderPoint,
+    }))
+    .filter((product) => product.totalQty <= product.reorderPoint)
+    .sort((a, b) => a.totalQty - b.totalQty)
+    .slice(0, limit);
 }
 
 export async function getCurrentStock() {
-  return [
-    {
-      id: "stock-1",
-      product: { id: "prod-1", name: "Sample product 1", sku: "SKU-1", reorderPoint: 3 },
-      location: { name: "Main Warehouse" },
-      quantity: 4,
-    },
-    {
-      id: "stock-2",
-      product: { id: "prod-2", name: "Sample product 2", sku: "SKU-2", reorderPoint: 5 },
-      location: { name: "Store Front" },
-      quantity: 8,
-    },
-  ];
-}
+  const [products, locations] = await Promise.all([
+    prisma.product.findMany({
+      where: { isActive: true },
+      orderBy: { name: "asc" },
+      select: {
+        id: true,
+        name: true,
+        category: { select: { name: true } },
+        unit: { select: { abbreviation: true } },
+        stockEntries: {
+          select: { id: true, locationId: true, quantity: true, location: { select: { name: true } } },
+        },
+      },
+    }),
+    prisma.location.findMany({
+      where: { isActive: true },
+      orderBy: [{ isWarehouse: "desc" }, { name: "asc" }],
+      select: { id: true, name: true },
+    }),
+  ]);
 
-export async function getLedger() {
-  return [
-    {
-      id: "ledger-1",
-      productId: "prod-1",
-      product: { name: "Sample product 1", sku: "SKU-1" },
-      locationId: "loc-1",
-      movementType: "IN",
-      quantityIn: 5,
-      quantityOut: 0,
-      balanceAfter: 12,
-      referenceType: "GRN",
-      referenceId: "grn-1",
-      createdAt: new Date("2024-01-10T00:00:00Z"),
-    },
-    {
-      id: "ledger-2",
-      productId: "prod-2",
-      product: { name: "Sample product 2", sku: "SKU-2" },
-      locationId: "loc-2",
-      movementType: "OUT",
-      quantityIn: 0,
-      quantityOut: 2,
-      balanceAfter: 8,
-      referenceType: "SALE",
-      referenceId: "sale-1",
-      createdAt: new Date("2024-01-11T00:00:00Z"),
-    },
-  ];
-}
-
-export async function getLocationById(id: string) {
   return {
-    id,
-    name: `Location ${id}`,
+    products: products.map((product) => ({
+      id: product.id,
+      name: product.name,
+      category: product.category?.name ?? null,
+      unitAbbreviation: product.unit?.abbreviation ?? null,
+      totalQuantity: product.stockEntries.reduce((sum, entry) => sum + Number(entry.quantity), 0),
+      stockByLocation: product.stockEntries.map((entry) => ({
+        locationId: entry.locationId,
+        quantity: Number(entry.quantity),
+      })),
+    })),
+    locations,
   };
 }
 
+export async function getLedger() {
+  const entries = await prisma.stockLedger.findMany({
+    orderBy: { createdAt: "desc" },
+    take: 500,
+    include: { product: { select: { name: true, sku: true } } },
+  });
+
+  return entries.map((entry) => ({
+    ...entry,
+    quantityIn: Number(entry.quantityIn),
+    quantityOut: Number(entry.quantityOut),
+    balanceAfter: Number(entry.balanceAfter),
+  }));
+}
+
+export async function getLocationById(id: string) {
+  return prisma.location.findUnique({ where: { id }, select: { id: true, name: true } });
+}
+
 export async function getStockByProduct(productId: string) {
-  return [
-    {
-      id: "stock-product-1",
-      product: { id: productId, name: "Sample Product", sku: "SKU-1", reorderPoint: 3 },
-      location: { name: "Main Warehouse" },
-      quantity: 12,
+  const entries = await prisma.stock.findMany({
+    where: { productId },
+    include: {
+      product: { select: { id: true, name: true, sku: true, reorderPoint: true } },
+      location: { select: { name: true } },
     },
-    {
-      id: "stock-product-2",
-      product: { id: productId, name: "Sample Product", sku: "SKU-1", reorderPoint: 3 },
-      location: { name: "Store Front" },
-      quantity: 5,
-    },
-  ];
+    orderBy: { location: { name: "asc" } },
+  });
+
+  return entries.map((entry) => ({ ...entry, quantity: Number(entry.quantity) }));
 }

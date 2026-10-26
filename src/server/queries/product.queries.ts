@@ -1,81 +1,56 @@
+import { prisma } from "@/lib/prisma";
+
 export async function getProducts() {
-  return [
-    {
-      id: "prod-1",
-      name: "Sample Product 1",
-      sku: "SKU-1",
-      barcode: "12345",
-      description: "Sample product",
-      categoryId: "cat-1",
-      brandId: "brand-1",
-      unitId: "unit-1",
-      costPrice: 120,
-      sellingPrice: 180,
-      isActive: true,
-      category: { name: "Electronics" },
-      unit: { abbreviation: "pcs" },
-      reorderPoint: 5,
-      imageUrl: "",
-      totalQty: 12,
+  const products = await prisma.product.findMany({
+    orderBy: { name: "asc" },
+    include: {
+      category: { select: { name: true } },
+      unit: { select: { name: true, abbreviation: true } },
     },
-    {
-      id: "prod-2",
-      name: "Sample Product 2",
-      sku: "SKU-2",
-      barcode: "67890",
-      description: "Another sample",
-      categoryId: "cat-2",
-      brandId: "brand-2",
-      unitId: "unit-1",
-      costPrice: 90,
-      sellingPrice: 140,
-      isActive: true,
-      category: { name: "Accessories" },
-      unit: { abbreviation: "box" },
-      reorderPoint: 3,
-      imageUrl: "",
-      totalQty: 8,
-    },
-  ];
+  });
+
+  return products.map((product) => ({
+    ...product,
+    costPrice: Number(product.costPrice),
+    sellingPrice: Number(product.sellingPrice),
+    totalQty: 0,
+  }));
 }
 
 export async function getProductById(id: string) {
+  const product = await prisma.product.findUnique({
+    where: { id },
+    include: {
+      category: { select: { name: true } },
+      unit: { select: { name: true, abbreviation: true } },
+    },
+  });
+  if (!product) return null;
+
   return {
-    id,
-    name: `Sample Product ${id}`,
-    sku: `SKU-${id}`,
-    barcode: "12345",
-    description: "Sample product",
-    categoryId: "cat-1",
-    brandId: "brand-1",
-    unitId: "unit-1",
-    costPrice: 120,
-    sellingPrice: 180,
-    isActive: true,
-    category: { name: "Electronics" },
-    unit: { abbreviation: "pcs" },
-    reorderPoint: 5,
-    imageUrl: "",
+    ...product,
+    costPrice: Number(product.costPrice),
+    sellingPrice: Number(product.sellingPrice),
   };
 }
 
 export async function getCategories() {
-  return [
-    { id: "cat-1", name: "Electronics" },
-    { id: "cat-2", name: "Accessories" },
-  ];
+  return prisma.category.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
 }
 
 export async function getBrands() {
-  return [
-    { id: "brand-1", name: "Brand A" },
-    { id: "brand-2", name: "Brand B" },
-  ];
+  return prisma.brand.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true },
+  });
 }
 
 export async function getUnits() {
-  return [
-    { id: "unit-1", name: "Piece", abbreviation: "pcs" },
-    { id: "unit-2", name: "Box", abbreviation: "box" },
-  ];
+  return prisma.unit.findMany({
+    orderBy: { name: "asc" },
+    select: { id: true, name: true, abbreviation: true },
+  });
 }

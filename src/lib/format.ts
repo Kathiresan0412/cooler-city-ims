@@ -1,9 +1,6 @@
-export function formatCurrency(value: number | string | null | undefined, currency = "USD") {
+export function formatCurrency(value: number | string | null | undefined, currency = "LKR") {
   const numeric = Number(value ?? 0);
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-  }).format(Number.isFinite(numeric) ? numeric : 0);
+  return new Intl.NumberFormat("en-US", {style: "currency",currency,}).format(Number.isFinite(numeric) ? numeric : 0);
 }
 
 export function formatDate(value: string | Date | null | undefined, options?: Intl.DateTimeFormatOptions) {

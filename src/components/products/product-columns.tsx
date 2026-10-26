@@ -2,21 +2,19 @@
 
 import { ColumnDef } from "@tanstack/react-table";
 import Link from "next/link";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
-import { ArrowUpDown, Pencil } from "lucide-react";
+import { ArrowUpDown, ImageIcon, Pencil } from "lucide-react";
+import Image from "next/image";
 
 export type ProductRow = {
   id: string;
   name: string;
-  sku: string;
-  barcode?: string | null;
   costPrice: number;
-  sellingPrice: number;
   isActive: boolean;
+  imageUrl?: string | null;
   category?: { name: string } | null;
-  unit?: { abbreviation: string } | null;
+  unit?: { name: string; abbreviation: string } | null;
 };
 
 export const productColumns: ColumnDef<ProductRow>[] = [
@@ -33,32 +31,34 @@ export const productColumns: ColumnDef<ProductRow>[] = [
       </Link>
     ),
   },
-  { accessorKey: "sku", header: "SKU" },
-  { accessorKey: "barcode", header: "Barcode" },
+  {
+    id: "image",
+    header: "Product Image",
+    cell: ({ row }) => row.original.imageUrl ? (
+      <Image
+        src={row.original.imageUrl}
+        alt={row.original.name}
+        width={40}
+        height={40}
+        unoptimized
+        className="h-10 w-10 rounded object-cover"
+      />
+    ) : <ImageIcon className="h-5 w-5 text-muted-foreground" aria-label="No product image" />,
+  },
   {
     id: "category",
     header: "Category",
     cell: ({ row }) => row.original.category?.name ?? "—",
   },
   {
+    id: "unit",
+    header: "Unit",
+    cell: ({ row }) => row.original.unit ? `${row.original.unit.name} (${row.original.unit.abbreviation})` : "—",
+  },
+  {
     accessorKey: "costPrice",
-    header: "Cost",
+    header: "Cost Price",
     cell: ({ row }) => formatCurrency(row.getValue("costPrice")),
-  },
-  {
-    accessorKey: "sellingPrice",
-    header: "Price",
-    cell: ({ row }) => formatCurrency(row.getValue("sellingPrice")),
-  },
-  {
-    accessorKey: "isActive",
-    header: "Status",
-    cell: ({ row }) =>
-      row.getValue("isActive") ? (
-        <Badge variant="outline" className="border-transparent bg-green-100 text-green-800">Active</Badge>
-      ) : (
-        <Badge variant="outline" className="border-transparent bg-muted text-muted-foreground">Inactive</Badge>
-      ),
   },
   {
     id: "actions",

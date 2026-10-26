@@ -17,7 +17,7 @@ export const navItems: NavItem[] = [
   // { href: "/sales", label: "Sales", icon: BarChart3 },
   // { href: "/purchase-orders", label: "Purchase Orders", icon: FileText },
   // { href: "/grn", label: "GRN", icon: PackageCheck },
-  { href: "/returns", label: "Returns", icon: PackagePlus },
+  // { href: "/returns", label: "Returns", icon: PackagePlus },
   // { href: "/transfers", label: "Transfers", icon: ArrowLeftRight },
   { href: "/stock", label: "Stock", icon: Warehouse },
   // { href: "/stock-take", label: "Stock Take", icon: ClipboardList },
