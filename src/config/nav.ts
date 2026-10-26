@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BarChart3, Box, Building2, ChefHat, ClipboardList, FileText, FolderOpen, Home, Package, PackageCheck, PackagePlus, Settings, ShieldCheck, Truck, Users, Warehouse, ArrowLeftRight, BellRing, ScanLine } from "lucide-react";
+import { BarChart3, Box, ChefHat, Home, Package, Settings, Truck, Users, Warehouse } from "lucide-react";
 
 export type NavItem = {
   href: string;
