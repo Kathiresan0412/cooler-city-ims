@@ -7,6 +7,7 @@ import { updateRolePermissions } from "@/server/actions/role.actions";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Loader2 } from "lucide-react";
 
 interface Permission {
   id: string;
@@ -23,6 +24,7 @@ interface PermissionMatrixProps {
 
 export function PermissionMatrix({ roleId, permissions = [], assignedIds = [] }: PermissionMatrixProps) {
   const [selected, setSelected] = useState<Set<string>>(new Set(assignedIds));
+  const [isSaving, setIsSaving] = useState(false);
   const { toast } = useToast();
   const router = useRouter();
 
@@ -46,12 +48,24 @@ export function PermissionMatrix({ roleId, permissions = [], assignedIds = [] }:
   }
 
   async function save() {
-    const result = await updateRolePermissions(roleId, Array.from(selected));
-    if (result.error) {
-      toast({ title: "Error", description: result.error, variant: "destructive" });
-    } else {
+    setIsSaving(true);
+    try {
+      const result = await updateRolePermissions(roleId, Array.from(selected));
+      if (!result.success) {
+        toast({ title: "Error", description: result.error, variant: "destructive" });
+        return;
+      }
+
       toast({ title: "Permissions saved" });
-      router.refresh();
+      router.push("/admin/roles");
+    } catch {
+      toast({
+        title: "Error",
+        description: "Could not save permissions. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSaving(false);
     }
   }
 
@@ -72,6 +86,7 @@ export function PermissionMatrix({ roleId, permissions = [], assignedIds = [] }:
                   id={p.id}
                   checked={selected.has(p.id)}
                   onCheckedChange={() => toggle(p.id)}
+                  disabled={isSaving}
                 />
                 <Label htmlFor={p.id} className="text-sm font-normal cursor-pointer">{p.label}</Label>
               </div>
@@ -79,7 +94,10 @@ export function PermissionMatrix({ roleId, permissions = [], assignedIds = [] }:
           </div>
         </div>
       ))}
-      <Button onClick={save}>Save Permissions</Button>
+      <Button onClick={save} disabled={isSaving}>
+        {isSaving && <Loader2 className="h-4 w-4 animate-spin" />}
+        {isSaving ? "Saving permissions..." : "Save Permissions"}
+      </Button>
     </div>
   );
 }
