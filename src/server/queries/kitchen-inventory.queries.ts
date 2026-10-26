@@ -8,7 +8,7 @@ export async function getKitchenInventoryData() {
   const mainWarehouse = warehouse?.isActive && warehouse.isWarehouse
     ? { id: warehouse.id, name: warehouse.name }
     : null;
-  const [products, issues] = await Promise.all([
+  const [products, issues, users] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true },
       orderBy: { name: "asc" },
@@ -30,6 +30,11 @@ export async function getKitchenInventoryData() {
         location: { select: { name: true } },
       },
     }),
+    prisma.user.findMany({
+      where: { isActive: true },
+      orderBy: [{ name: "asc" }, { email: "asc" }],
+      select: { id: true, name: true, email: true },
+    }),
   ]);
 
   return {
@@ -40,6 +45,7 @@ export async function getKitchenInventoryData() {
       unitAbbreviation: product.unit?.abbreviation ?? null,
       availableQuantity: Number(product.stockEntries[0]?.quantity ?? 0),
     })),
+    users,
     warehouse: mainWarehouse,
     issues: issues.map((issue) => ({
       id: issue.id,

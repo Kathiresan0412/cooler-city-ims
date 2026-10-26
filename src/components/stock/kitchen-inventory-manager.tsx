@@ -18,6 +18,12 @@ interface ProductOption {
   availableQuantity: number;
 }
 
+interface UserOption {
+  id: string;
+  name: string | null;
+  email: string;
+}
+
 interface KitchenIssueRow {
   id: string;
   productName: string;
@@ -34,15 +40,16 @@ interface KitchenIssueRow {
 
 interface KitchenInventoryManagerProps {
   products: ProductOption[];
+  users: UserOption[];
   warehouse: { id: string; name: string } | null;
   issues: KitchenIssueRow[];
 }
 
-export function KitchenInventoryManager({ products, warehouse, issues }: KitchenInventoryManagerProps) {
+export function KitchenInventoryManager({ products, users, warehouse, issues }: KitchenInventoryManagerProps) {
   const router = useRouter();
   const { toast } = useToast();
   const [productId, setProductId] = useState("");
-  const [receiverName, setReceiverName] = useState("");
+  const [receiverId, setReceiverId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [notes, setNotes] = useState("");
   const [returnQuantities, setReturnQuantities] = useState<Record<string, string>>({});
@@ -52,13 +59,14 @@ export function KitchenInventoryManager({ products, warehouse, issues }: Kitchen
     () => products.find((product) => product.id === productId),
     [products, productId]
   );
+  const selectedReceiver = users.find((user) => user.id === receiverId);
   const availableQuantity = selectedProduct?.availableQuantity ?? 0;
 
   async function handleIssue(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const parsedQuantity = Number(quantity);
-    if (!productId || !receiverName.trim() || !quantity.trim() || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
-      toast({ title: "Missing or invalid information", description: "Select a product, enter the receiver's name, and enter a quantity greater than zero.", variant: "destructive" });
+    if (!productId || !selectedReceiver || !quantity.trim() || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+      toast({ title: "Missing or invalid information", description: "Select a product, select who will receive it, and enter a quantity greater than zero.", variant: "destructive" });
       return;
     }
     if (parsedQuantity > availableQuantity) {
@@ -68,14 +76,19 @@ export function KitchenInventoryManager({ products, warehouse, issues }: Kitchen
 
     setIsSaving(true);
     try {
-      const result = await issueToKitchen({ productId, receiverName, quantity: parsedQuantity, notes });
+      const result = await issueToKitchen({
+        productId,
+        receiverName: selectedReceiver.name?.trim() || selectedReceiver.email,
+        quantity: parsedQuantity,
+        notes,
+      });
       if (!result.success) {
         toast({ title: "Could not issue stock", description: result.error, variant: "destructive" });
         return;
       }
       toast({ title: "Stock issued to kitchen" });
       setProductId("");
-      setReceiverName("");
+      setReceiverId("");
       setQuantity("");
       setNotes("");
       router.refresh();
@@ -133,14 +146,16 @@ export function KitchenInventoryManager({ products, warehouse, issues }: Kitchen
           </div>
           <div className="space-y-2">
             <Label htmlFor="kitchen-receiver">Received by</Label>
-            <Input
-              id="kitchen-receiver"
-              maxLength={120}
-              value={receiverName}
-              onChange={(event) => setReceiverName(event.target.value)}
-              placeholder="Receiver's name"
-              disabled={isSaving}
-            />
+            <Select value={receiverId || undefined} onValueChange={setReceiverId} disabled={isSaving}>
+              <SelectTrigger id="kitchen-receiver"><SelectValue placeholder="Select a user" /></SelectTrigger>
+              <SelectContent>
+                {users.map((user) => (
+                  <SelectItem key={user.id} value={user.id}>
+                    {user.name?.trim() ? `${user.name.trim()} (${user.email})` : user.email}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="space-y-2">
             <Label htmlFor="kitchen-quantity">Quantity</Label>
@@ -171,7 +186,7 @@ export function KitchenInventoryManager({ products, warehouse, issues }: Kitchen
             />
           </div>
           <div className="sm:col-span-2 lg:col-span-4">
-            <Button type="submit" disabled={isSaving || products.length === 0 || !warehouse}>
+            <Button type="submit" disabled={isSaving || products.length === 0 || users.length === 0 || !warehouse}>
               {isSaving ? "Saving..." : "Issue to Kitchen"}
             </Button>
           </div>
@@ -179,11 +194,13 @@ export function KitchenInventoryManager({ products, warehouse, issues }: Kitchen
         <p className="mt-3 text-sm text-muted-foreground">
           Stock is always issued from {warehouse?.name ?? "the main warehouse"}.
         </p>
-        {(products.length === 0 || !warehouse) && (
+        {(products.length === 0 || users.length === 0 || !warehouse) && (
           <p className="mt-3 text-sm text-destructive">
             {products.length === 0
               ? "Add an active product before issuing stock."
-              : "Configure an active Main Warehouse (location code WH-MAIN) before issuing stock."}
+              : users.length === 0
+                ? "Add an active user before issuing stock."
+                : "Configure an active Main Warehouse (location code WH-MAIN) before issuing stock."}
           </p>
         )}
       </section>
