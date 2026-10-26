@@ -113,6 +113,7 @@ export async function adjustProductStock(data: {
 }
 
 export async function createAdjustment(data: Record<string, unknown>) {
+  await requirePermission("stock", "adjust");
   console.info("createAdjustment stub", data);
   return { id: "stub-adjustment-id", error: null };
 }

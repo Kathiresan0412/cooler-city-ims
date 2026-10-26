@@ -2,7 +2,8 @@ import { auth } from "@/lib/auth";
 import { redirect } from "next/navigation";
 import { Sidebar } from "@/components/layout/sidebar";
 import { Topbar } from "@/components/layout/topbar";
-import { hasKitchenInventoryPermission } from "@/lib/permissions";
+import { getUserPermissions } from "@/lib/permissions";
+import { PermissionProvider } from "@/providers/permission-provider";
 
 export default async function DashboardLayout({
   children,
@@ -11,15 +12,17 @@ export default async function DashboardLayout({
 }) {
   const session = await auth();
   if (!session?.user) redirect("/login");
-  const canManageKitchenInventory = await hasKitchenInventoryPermission(session.user.id);
+  const permissions = await getUserPermissions(session.user.id);
 
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
-      <Sidebar canManageKitchenInventory={canManageKitchenInventory} />
-      <div className="flex flex-1 flex-col overflow-hidden">
-        <Topbar canManageKitchenInventory={canManageKitchenInventory} />
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+    <PermissionProvider permissions={permissions}>
+      <div className="flex h-screen overflow-hidden bg-background">
+        <Sidebar />
+        <div className="flex flex-1 flex-col overflow-hidden">
+          <Topbar />
+          <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        </div>
       </div>
-    </div>
+    </PermissionProvider>
   );
 }

@@ -7,13 +7,29 @@ type PermissionContextValue = {
   hasPermission: (permission: string) => boolean;
 };
 
-export function PermissionProvider({ children }: { children: React.ReactNode }) {
-  return <>{children}</>;
+const PermissionContext = React.createContext<PermissionContextValue>({
+  permissions: [],
+  hasPermission: () => false,
+});
+
+export function PermissionProvider({
+  children,
+  permissions,
+}: {
+  children: React.ReactNode;
+  permissions: string[];
+}) {
+  const value = React.useMemo<PermissionContextValue>(
+    () => ({
+      permissions,
+      hasPermission: (permission) => permissions.includes(permission),
+    }),
+    [permissions]
+  );
+
+  return <PermissionContext.Provider value={value}>{children}</PermissionContext.Provider>;
 }
 
 export function usePermissionContext(): PermissionContextValue {
-  return {
-    permissions: [],
-    hasPermission: (_permission: string) => false,
-  } as PermissionContextValue;
+  return React.useContext(PermissionContext);
 }
