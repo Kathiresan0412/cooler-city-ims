@@ -1,0 +1,85 @@
+"use client";
+
+import { useForm, useFieldArray } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import { adjustmentSchema, AdjustmentInput } from "@/lib/validations/stock.schema";
+import { createAdjustment } from "@/server/actions/stock.actions";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+import { useRouter } from "next/navigation";
+import { Plus, Trash2 } from "lucide-react";
+
+export function AdjustmentForm() {
+  const router = useRouter();
+  const { toast } = useToast();
+
+  const form = useForm<AdjustmentInput>({
+    resolver: zodResolver(adjustmentSchema),
+    defaultValues: { locationId: "", reason: "", items: [{ productId: "", quantity: 0, note: "" }] },
+  });
+
+  const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
+
+  async function onSubmit(data: AdjustmentInput) {
+    const result = await createAdjustment(data);
+    if (result.error) {
+      toast({ title: "Error", description: result.error, variant: "destructive" });
+    } else {
+      toast({ title: "Adjustment created" });
+      router.push("/stock/adjustments");
+      router.refresh();
+    }
+  }
+
+  return (
+    <form onSubmit={form.handleSubmit(onSubmit)} className="max-w-2xl space-y-6">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <div className="space-y-2">
+          <Label>Location *</Label>
+          <Input placeholder="Location ID" {...form.register("locationId")} />
+        </div>
+        <div className="space-y-2">
+          <Label>Reason</Label>
+          <Input placeholder="Reason for adjustment" {...form.register("reason")} />
+        </div>
+      </div>
+
+      <div className="space-y-3">
+        <Label>Items</Label>
+        {fields.map((field, i) => (
+          <div key={field.id} className="flex items-end gap-2">
+            <div className="flex-1">
+              <Input placeholder="Product ID / SKU" {...form.register(`items.${i}.productId`)} />
+            </div>
+            <div className="w-28">
+              <Input
+                type="number"
+                placeholder="Qty (+/-)"
+                {...form.register(`items.${i}.quantity`, { valueAsNumber: true })}
+              />
+            </div>
+            <div className="flex-1">
+              <Input placeholder="Note" {...form.register(`items.${i}.note`)} />
+            </div>
+            <Button type="button" variant="ghost" size="icon" onClick={() => remove(i)}>
+              <Trash2 className="h-4 w-4 text-destructive" />
+            </Button>
+          </div>
+        ))}
+        <Button type="button" variant="outline" size="sm" onClick={() => append({ productId: "", quantity: 0, note: "" })}>
+          <Plus className="mr-2 h-4 w-4" />
+          Add Item
+        </Button>
+      </div>
+
+      <div className="flex gap-3">
+        <Button type="submit" disabled={form.formState.isSubmitting}>
+          {form.formState.isSubmitting ? "Saving..." : "Create Adjustment"}
+        </Button>
+        <Button type="button" variant="outline" onClick={() => router.back()}>Cancel</Button>
+      </div>
+    </form>
+  );
+}
