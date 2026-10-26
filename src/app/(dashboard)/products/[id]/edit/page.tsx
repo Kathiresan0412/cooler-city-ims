@@ -7,10 +7,11 @@ import { getProductById, getCategories, getBrands, getUnits } from "@/server/que
 
 export const metadata: Metadata = { title: "Edit Product" };
 
-export default async function EditProductPage({ params }: { params: { id: string } }) {
+export default async function EditProductPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   await requirePermission("products", "update");
   const [product, categories, brands, units] = await Promise.all([
-    getProductById(params.id),
+    getProductById(id),
     getCategories(),
     getBrands(),
     getUnits(),

@@ -5,13 +5,14 @@ import { requirePermission } from "@/lib/permissions";
 
 export const metadata: Metadata = { title: "Transfer Detail" };
 
-export default async function TransferDetailPage({ params }: { params: { id: string } }) {
+export default async function TransferDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   await requirePermission("transfers", "read");
 
   return (
     <div className="space-y-6">
       <PageHeader title="Transfer Detail" description="Approve, dispatch, or receive this transfer" />
-      <TransferWorkflow transferId={params.id} />
+      <TransferWorkflow transferId={id} />
     </div>
   );
 }

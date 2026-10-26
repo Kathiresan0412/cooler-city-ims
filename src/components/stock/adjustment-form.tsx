@@ -1,8 +1,6 @@
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { adjustmentSchema, AdjustmentInput } from "@/lib/validations/stock.schema";
 import { createAdjustment } from "@/server/actions/stock.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,14 +13,13 @@ export function AdjustmentForm() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const form = useForm<AdjustmentInput>({
-    resolver: zodResolver(adjustmentSchema),
+  const form = useForm<any>({
     defaultValues: { locationId: "", reason: "", items: [{ productId: "", quantity: 0, note: "" }] },
   });
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
 
-  async function onSubmit(data: AdjustmentInput) {
+  async function onSubmit(data: any) {
     const result = await createAdjustment(data);
     if (result.error) {
       toast({ title: "Error", description: result.error, variant: "destructive" });

@@ -332,17 +332,18 @@ model GRN {
 }
 
 model GRNItem {
-  id           String  @id @default(cuid())
-  grnId        String
-  productId    String
-  locationId   String
-  quantity     Decimal @db.Decimal(12, 4)
-  unitCost     Decimal @db.Decimal(12, 4)
-  poItemId     String? // optional link to PO line
+  id        String  @id @default(cuid())
+  grnId     String
+  productId String
+  locationId String
+  quantity  Decimal @db.Decimal(12, 4)
+  unitCost  Decimal @db.Decimal(12, 4)
+  poItemId  String? // optional link to PO line
 
   grn      GRN      @relation(fields: [grnId], references: [id], onDelete: Cascade)
   product  Product  @relation(fields: [productId], references: [id])
   location Location @relation(fields: [locationId], references: [id])
+  poItem   POItem?  @relation(fields: [poItemId], references: [id])
 
   @@map("grn_items")
 }
@@ -450,7 +451,6 @@ model PurchaseOrder {
 
   createdBy User?    @relation(fields: [createdById], references: [id])
   items     POItem[]
-  grns      GRNItem[] // not a direct relation — see grnItem.poItemId
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -459,15 +459,16 @@ model PurchaseOrder {
 }
 
 model POItem {
-  id              String  @id @default(cuid())
-  poId            String
-  productId       String
-  quantity        Decimal @db.Decimal(12, 4)
-  receivedQty     Decimal @default(0) @db.Decimal(12, 4)
-  unitCost        Decimal @db.Decimal(12, 4)
+  id          String  @id @default(cuid())
+  poId        String
+  productId   String
+  quantity    Decimal @db.Decimal(12, 4)
+  receivedQty Decimal @default(0) @db.Decimal(12, 4)
+  unitCost    Decimal @db.Decimal(12, 4)
 
   po      PurchaseOrder @relation(fields: [poId], references: [id], onDelete: Cascade)
   product Product       @relation(fields: [productId], references: [id])
+  grnItems GRNItem[]
 
   @@map("po_items")
 }

@@ -4,8 +4,9 @@ import { auth } from "@/lib/auth";
 
 export async function GET(
   _request: NextRequest,
-  { params }: { params: { code: string } }
+  { params }: { params: Promise<{ code: string }> }
 ) {
+  const { code } = await params;
   const session = await auth();
   if (!session?.user) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -14,9 +15,9 @@ export async function GET(
   const product = await prisma.product.findFirst({
     where: {
       OR: [
-        { barcode: params.code },
-        { sku: params.code },
-        { variants: { some: { barcode: params.code } } },
+        { barcode: code },
+        { sku: code },
+        { variants: { some: { barcode: code } } },
       ],
     },
     include: { unit: true, category: true, stockEntries: { include: { location: true } } },

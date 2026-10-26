@@ -1,5 +1,5 @@
-// shadcn/ui config
 {
+  "$schema": "https://ui.shadcn.com/schema.json",
   "style": "default",
   "rsc": true,
   "tsx": true,

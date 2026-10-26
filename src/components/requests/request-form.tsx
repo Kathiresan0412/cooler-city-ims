@@ -13,13 +13,13 @@ export function RequestForm() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const form = useForm({
+  const form = useForm<any>({
     defaultValues: { notes: "", items: [{ productId: "", quantity: 0 }] },
   });
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
 
-  async function onSubmit(data: typeof form.getValues) {
+  async function onSubmit(_data: any) {
     const result = await createRequest(form.getValues());
     if (result.error) {
       toast({ title: "Error", description: result.error, variant: "destructive" });

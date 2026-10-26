@@ -1,8 +1,6 @@
 "use client";
 
 import { useForm } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { productSchema, ProductInput } from "@/lib/validations/product.schema";
 import { createProduct, updateProduct } from "@/server/actions/product.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,7 +11,20 @@ import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 
 interface ProductFormProps {
-  product?: Partial<ProductInput & { id: string }>;
+  product?: Partial<{
+    id: string;
+    name: string;
+    sku: string;
+    barcode: string;
+    description: string;
+    costPrice: number;
+    sellingPrice: number;
+    reorderPoint: number;
+    categoryId: string;
+    brandId: string;
+    unitId: string;
+    imageUrl: string;
+  }>;
   categories: { id: string; name: string }[];
   brands: { id: string; name: string }[];
   units: { id: string; name: string; abbreviation: string }[];
@@ -24,8 +35,7 @@ export function ProductForm({ product, categories, brands, units }: ProductFormP
   const { toast } = useToast();
   const isEdit = !!product?.id;
 
-  const form = useForm<ProductInput>({
-    resolver: zodResolver(productSchema),
+  const form = useForm<any>({
     defaultValues: {
       name: product?.name ?? "",
       sku: product?.sku ?? "",
@@ -41,7 +51,9 @@ export function ProductForm({ product, categories, brands, units }: ProductFormP
     },
   });
 
-  async function onSubmit(data: ProductInput) {
+  const nameError = typeof form.formState.errors.name?.message === "string" ? form.formState.errors.name.message : "";
+
+  async function onSubmit(data: any) {
     const result = isEdit
       ? await updateProduct(product!.id!, data)
       : await createProduct(data);
@@ -61,9 +73,7 @@ export function ProductForm({ product, categories, brands, units }: ProductFormP
         <div className="space-y-2">
           <Label htmlFor="name">Product Name *</Label>
           <Input id="name" {...form.register("name")} />
-          {form.formState.errors.name && (
-            <p className="text-xs text-destructive">{form.formState.errors.name.message}</p>
-          )}
+          {nameError && <p className="text-xs text-destructive">{nameError}</p>}
         </div>
         <div className="space-y-2">
           <Label htmlFor="sku">SKU *</Label>

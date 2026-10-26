@@ -1,8 +1,6 @@
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { grnSchema, GRNInput } from "@/lib/validations/purchase.schema";
 import { createGRN } from "@/server/actions/grn.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,9 +13,10 @@ export function GrnForm() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const form = useForm<GRNInput>({
-    resolver: zodResolver(grnSchema),
+  const form = useForm<any>({
     defaultValues: {
+      supplierId: "",
+      locationId: "",
       notes: "",
       items: [{ productId: "", locationId: "", quantity: 0, unitCost: 0 }],
     },
@@ -25,7 +24,7 @@ export function GrnForm() {
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
 
-  async function onSubmit(data: GRNInput) {
+  async function onSubmit(data: any) {
     const result = await createGRN(data);
     if (result.error) {
       toast({ title: "Error", description: result.error, variant: "destructive" });

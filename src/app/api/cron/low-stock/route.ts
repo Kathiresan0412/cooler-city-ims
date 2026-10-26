@@ -31,14 +31,15 @@ export async function GET(request: NextRequest) {
     select: { id: true },
   });
 
-  const notifications = lowStockItems.flatMap((item) =>
-    admins.map((admin) => ({
-      userId: admin.id,
-      title: "Low Stock Alert",
-      message: `${item.name} has ${item.totalQty} units remaining (reorder point: ${item.reorderPoint}).`,
-      type: "LOW_STOCK",
-      link: `/reports/low-stock`,
-    }))
+  const notifications = lowStockItems.flatMap(
+    (item: { productId: string; name: string; totalQty: number; reorderPoint: number }) =>
+      admins.map((admin: { id: string }) => ({
+        userId: admin.id,
+        title: "Low Stock Alert",
+        message: `${item.name} has ${item.totalQty} units remaining (reorder point: ${item.reorderPoint}).`,
+        type: "LOW_STOCK",
+        link: `/reports/low-stock`,
+      }))
   );
 
   await prisma.notification.createMany({ data: notifications });

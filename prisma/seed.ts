@@ -1,4 +1,4 @@
-import { PrismaClient, Prisma } from "@prisma/client";
+import { PrismaClient } from "@prisma/client";
 import bcrypt from "bcryptjs";
 
 const prisma = new PrismaClient();
@@ -118,7 +118,7 @@ async function main() {
 
   // 2. Roles
   console.log("  Creating roles...");
-  const allPermissions = await prisma.permission.findMany();
+  const allPermissions: Array<{ id: string; resource: string; action: string }> = await prisma.permission.findMany();
 
   const adminRole = await prisma.role.upsert({
     where: { name: "Admin" },
@@ -134,7 +134,7 @@ async function main() {
   });
 
   const managerPermissions = allPermissions.filter(
-    (p) => !["users", "roles", "settings"].includes(p.resource) || p.action === "read"
+    (p: { id: string; resource: string; action: string }) => !["users", "roles", "settings"].includes(p.resource) || p.action === "read"
   );
   const managerRole = await prisma.role.upsert({
     where: { name: "Manager" },
@@ -149,9 +149,10 @@ async function main() {
     },
   });
 
-  const staffPermissions = allPermissions.filter((p) =>
-    ["products", "stock", "grn", "transfers", "requests", "sales", "barcode", "notifications"].includes(p.resource) &&
-    ["read", "create", "scan"].includes(p.action)
+  const staffPermissions = allPermissions.filter(
+    (p: { id: string; resource: string; action: string }) =>
+      ["products", "stock", "grn", "transfers", "requests", "sales", "barcode", "notifications"].includes(p.resource) &&
+      ["read", "create", "scan"].includes(p.action)
   );
   const staffRole = await prisma.role.upsert({
     where: { name: "Staff" },
@@ -165,6 +166,8 @@ async function main() {
       },
     },
   });
+  void managerRole;
+  void staffRole;
 
   // 3. Admin user
   console.log("  Creating admin user...");

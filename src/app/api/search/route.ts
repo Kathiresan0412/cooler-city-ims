@@ -38,9 +38,33 @@ export async function GET(request: NextRequest) {
 
   return NextResponse.json({
     results: [
-      ...products.map((p) => ({ type: "product", id: p.id, label: p.name, sub: p.sku, href: `/products/${p.id}` })),
-      ...transfers.map((t) => ({ type: "transfer", id: t.id, label: t.transferNumber, sub: t.status, href: `/transfers/${t.id}` })),
-      ...grns.map((g) => ({ type: "grn", id: g.id, label: g.grnNumber, sub: g.status, href: `/grn/${g.id}` })),
+      ...products.map(
+        (p: { id: string; name: string; sku: string }) => ({
+          type: "product",
+          id: p.id,
+          label: p.name,
+          sub: p.sku,
+          href: `/products/${p.id}`,
+        })
+      ),
+      ...transfers.map(
+        (t: { id: string; transferNumber: string; status: string }) => ({
+          type: "transfer",
+          id: t.id,
+          label: t.transferNumber,
+          sub: t.status,
+          href: `/transfers/${t.id}`,
+        })
+      ),
+      ...grns.map(
+        (g: { id: string; grnNumber: string; status: string }) => ({
+          type: "grn",
+          id: g.id,
+          label: g.grnNumber,
+          sub: g.status,
+          href: `/grn/${g.id}`,
+        })
+      ),
     ],
   });
 }

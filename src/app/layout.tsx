@@ -4,7 +4,6 @@ import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "@/providers/theme-provider";
 import { SessionProvider } from "@/providers/session-provider";
-import { PermissionProvider } from "@/providers/permission-provider";
 import { siteConfig } from "@/config/site";
 
 const inter = Inter({ subsets: ["latin"] });
@@ -27,10 +26,8 @@ export default function RootLayout({
       <body className={inter.className}>
         <SessionProvider>
           <ThemeProvider attribute="class" defaultTheme="light" enableSystem>
-            <PermissionProvider>
-              {children}
-              <Toaster />
-            </PermissionProvider>
+            {children}
+            <Toaster />
           </ThemeProvider>
         </SessionProvider>
       </body>

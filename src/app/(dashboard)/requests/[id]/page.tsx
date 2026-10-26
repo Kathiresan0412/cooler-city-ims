@@ -5,13 +5,14 @@ import { requirePermission } from "@/lib/permissions";
 
 export const metadata: Metadata = { title: "Request Detail" };
 
-export default async function RequestDetailPage({ params }: { params: { id: string } }) {
+export default async function RequestDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   await requirePermission("requests", "read");
 
   return (
     <div className="space-y-6">
       <PageHeader title="Request Detail" description="Review and action this stock request" />
-      <RequestApproval requestId={params.id} />
+      <RequestApproval requestId={id} />
     </div>
   );
 }

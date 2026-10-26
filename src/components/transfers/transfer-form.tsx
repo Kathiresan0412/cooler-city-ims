@@ -1,8 +1,6 @@
 "use client";
 
 import { useForm, useFieldArray } from "react-hook-form";
-import { zodResolver } from "@hookform/resolvers/zod";
-import { transferSchema, TransferInput } from "@/lib/validations/transfer.schema";
 import { createTransfer } from "@/server/actions/transfer.actions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,8 +13,7 @@ export function TransferForm() {
   const router = useRouter();
   const { toast } = useToast();
 
-  const form = useForm<TransferInput>({
-    resolver: zodResolver(transferSchema),
+  const form = useForm<any>({
     defaultValues: {
       fromLocationId: "",
       toLocationId: "",
@@ -27,7 +24,7 @@ export function TransferForm() {
 
   const { fields, append, remove } = useFieldArray({ control: form.control, name: "items" });
 
-  async function onSubmit(data: TransferInput) {
+  async function onSubmit(data: any) {
     const result = await createTransfer(data);
     if (result.error) {
       toast({ title: "Error", description: result.error, variant: "destructive" });

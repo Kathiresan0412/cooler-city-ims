@@ -6,9 +6,10 @@ import { getLocationById } from "@/server/queries/stock.queries";
 
 export const metadata: Metadata = { title: "Location Stock" };
 
-export default async function LocationDetailPage({ params }: { params: { id: string } }) {
+export default async function LocationDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
   await requirePermission("stock", "read");
-  const location = await getLocationById(params.id);
+  const location = await getLocationById(id);
   if (!location) notFound();
 
   return (
