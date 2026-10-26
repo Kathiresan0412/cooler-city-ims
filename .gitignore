@@ -41,5 +41,7 @@ next-env.d.ts
 prisma/migrations/
 !prisma/migrations/
 prisma/migrations/*
+!prisma/migrations/20261026210500_unit_description/
+!prisma/migrations/20261026210500_unit_description/migration.sql
 !prisma/migrations/20261026220000_kitchen_inventory/
 !prisma/migrations/20261026220000_kitchen_inventory/migration.sql
