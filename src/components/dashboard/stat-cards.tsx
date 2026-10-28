@@ -23,17 +23,17 @@ export function StatCards({ stats }: { stats: DashboardStats }) {
       icon: TrendingDown,
       description: "At cost price",
     },
-    // {
-    //   title: "Pending Transfers",
-    //   value: stats.pendingTransfers.toLocaleString(),
-    //   icon: ArrowLeftRight,
-    //   description: "Awaiting dispatch or receipt",
-    // },
     {
       title: "Low Stock Alerts",
       value: stats.lowStockItems.toLocaleString(),
       icon: AlertTriangle,
       description: "Below reorder point",
+    },
+    {
+      title: "Pending Transfers",
+      value: stats.pendingTransfers.toLocaleString(),
+      icon: ArrowLeftRight,
+      description: "Awaiting approval or receipt",
     },
   ];
 
