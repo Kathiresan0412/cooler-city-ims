@@ -1,7 +1,7 @@
 "use server";
 
 import { Prisma } from "@prisma/client";
-import { hash } from "bcryptjs";
+import { compare, hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
 import { auth } from "@/lib/auth";
@@ -22,9 +22,91 @@ const updateUserSchema = userDetailsSchema.extend({
   password: z.union([z.literal(""), z.string().min(8, "Password must be at least 8 characters")]).optional(),
 });
 
+const selfProfileSchema = z.object({
+  name: z.string().trim().min(1, "Name is required").max(120),
+  email: z.string().trim().email("Enter a valid email address").max(255),
+  currentPassword: z.string().min(1, "Current password is required"),
+  newPassword: z.union([z.literal(""), z.string().min(8, "New password must be at least 8 characters")]),
+});
+
 async function validateRole(roleId?: string | null) {
   if (!roleId) return true;
   return Boolean(await prisma.role.findUnique({ where: { id: roleId }, select: { id: true } }));
+}
+
+export async function updateOwnProfile(data: {
+  name: string;
+  email: string;
+  currentPassword: string;
+  newPassword: string;
+}) {
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { success: false, error: "You must be signed in to update your profile" };
+
+  const parsed = selfProfileSchema.safeParse(data);
+  if (!parsed.success) {
+    return {
+      success: false,
+      error: parsed.error.issues[0]?.message ?? "Invalid profile details",
+    };
+  }
+
+  const user = await prisma.user.findUnique({
+    where: { id: userId },
+    select: { id: true, name: true, email: true, passwordHash: true },
+  });
+  if (!user?.passwordHash) {
+    return { success: false, error: "Password-based profile updates are unavailable for this account" };
+  }
+
+  if (!(await compare(parsed.data.currentPassword, user.passwordHash))) {
+    return { success: false, error: "Current password is incorrect" };
+  }
+
+  const email = parsed.data.email.toLowerCase();
+  const passwordHash = parsed.data.newPassword
+    ? await hash(parsed.data.newPassword, 12)
+    : undefined;
+
+  try {
+    await prisma.$transaction(async (transaction) => {
+      await transaction.user.update({
+        where: { id: user.id },
+        data: {
+          name: parsed.data.name,
+          email,
+          ...(passwordHash ? { passwordHash } : {}),
+        },
+      });
+      await transaction.auditLog.create({
+        data: {
+          userId: user.id,
+          action: "UPDATE",
+          resource: "Profile",
+          resourceId: user.id,
+          oldData: { name: user.name, email: user.email },
+          newData: {
+            name: parsed.data.name,
+            email,
+            passwordChanged: Boolean(passwordHash),
+          },
+        },
+      });
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2002") {
+      return { success: false, error: "An account with this email already exists" };
+    }
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") {
+      return { success: false, error: "Your account could not be found" };
+    }
+    throw error;
+  }
+
+  revalidatePath("/profile");
+  revalidatePath("/");
+  return { success: true, error: null };
 }
 
 export async function createUser(data: {

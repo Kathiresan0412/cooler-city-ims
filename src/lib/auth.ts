@@ -63,9 +63,20 @@ const authConfig: NextAuthConfig = {
     strategy: "jwt",
   },
   callbacks: {
-    async jwt({ token, user }) {
+    async jwt({ token, user, trigger }) {
       if (user) {
         token.id = user.id;
+      }
+      if (trigger === "update" && token.sub) {
+        const account = await prisma.user.findUnique({
+          where: { id: token.sub },
+          select: { name: true, email: true, image: true },
+        });
+        if (account) {
+          token.name = account.name ?? account.email;
+          token.email = account.email;
+          token.picture = account.image;
+        }
       }
       return token;
     },
