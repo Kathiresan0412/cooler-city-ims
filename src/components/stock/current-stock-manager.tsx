@@ -2,10 +2,12 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { Loader2, PackagePlus, Pencil } from "lucide-react";
+import { ArrowUpDown, Loader2, PackagePlus, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CategoryDateFilters } from "@/components/shared/category-date-filters";
+import { formatDate } from "@/lib/format";
 import {Select,SelectContent,SelectItem,SelectTrigger,SelectValue,} from "@/components/ui/select";
 import {AlertDialog,AlertDialogCancel,AlertDialogContent,AlertDialogDescription,AlertDialogFooter,AlertDialogHeader,
   AlertDialogTitle,
@@ -19,6 +21,7 @@ interface ProductOption {
   category: string | null;
   unitAbbreviation: string | null;
   totalQuantity: number;
+  stockUpdatedAt: Date | null;
   stockByLocation: { locationId: string; quantity: number }[];
 }
 
@@ -41,6 +44,38 @@ export function CurrentStockManager({ products, locations }: CurrentStockManager
   const [locationId, setLocationId] = useState("");
   const [quantity, setQuantity] = useState("");
   const [isSaving, setIsSaving] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [sortField, setSortField] = useState<"category" | "date">("category");
+  const [sortDescending, setSortDescending] = useState(false);
+
+  const categories = useMemo(
+    () => [...new Set(products.map((product) => product.category).filter((value): value is string => Boolean(value)))].sort(),
+    [products],
+  );
+  const visibleProducts = useMemo(() => products
+    .filter((product) => !categoryFilter || product.category === categoryFilter)
+    .filter((product) => {
+      if (!fromDate && !toDate) return true;
+      if (!product.stockUpdatedAt) return false;
+      const date = product.stockUpdatedAt.toISOString().slice(0, 10);
+      return (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
+    })
+    .sort((a, b) => {
+      const comparison = sortField === "category"
+        ? (a.category ?? "").localeCompare(b.category ?? "")
+        : (a.stockUpdatedAt?.getTime() ?? 0) - (b.stockUpdatedAt?.getTime() ?? 0);
+      return sortDescending ? -comparison : comparison;
+    }), [products, categoryFilter, fromDate, toDate, sortField, sortDescending]);
+
+  function toggleSort(field: "category" | "date") {
+    if (sortField === field) setSortDescending((descending) => !descending);
+    else {
+      setSortField(field);
+      setSortDescending(field === "date");
+    }
+  }
 
   const selectedProduct = useMemo(
     () => products.find((product) => product.id === productId),
@@ -112,22 +147,42 @@ export function CurrentStockManager({ products, locations }: CurrentStockManager
         </Button>
       </div>
 
+      <CategoryDateFilters
+        categories={categories}
+        category={categoryFilter}
+        onCategoryChange={setCategoryFilter}
+        fromDate={fromDate}
+        onFromDateChange={setFromDate}
+        toDate={toDate}
+        onToDateChange={setToDate}
+      />
+
       <div className="overflow-hidden rounded-md border">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/50">
             <tr>
               <th className="px-4 py-3 text-left font-medium">Product</th>
-              <th className="px-4 py-3 text-left font-medium">Category</th>
+              <th className="px-4 py-3 text-left font-medium">
+                <Button variant="ghost" size="sm" onClick={() => toggleSort("category")}>
+                  Category <ArrowUpDown className="ml-1 h-3 w-3" />
+                </Button>
+              </th>
+              <th className="px-4 py-3 text-left font-medium">
+                <Button variant="ghost" size="sm" onClick={() => toggleSort("date")}>
+                  Last updated <ArrowUpDown className="ml-1 h-3 w-3" />
+                </Button>
+              </th>
               <th className="px-4 py-3 text-left font-medium">Unit Abbreviation</th>
               <th className="px-4 py-3 text-right font-medium">Qty</th>
               <th className="px-4 py-3 text-right font-medium">Actions</th>
             </tr>
           </thead>
           <tbody>
-            {products.map((product) => (
+            {visibleProducts.map((product) => (
               <tr key={product.id} className="border-b last:border-0">
                 <td className="px-4 py-3 font-medium">{product.name}</td>
                 <td className="px-4 py-3">{product.category ?? "—"}</td>
+                <td className="px-4 py-3">{formatDate(product.stockUpdatedAt)}</td>
                 <td className="px-4 py-3">{product.unitAbbreviation ?? "—"}</td>
                 <td className="px-4 py-3 text-right tabular-nums">{product.totalQuantity}</td>
                 <td className="px-4 py-3 text-right">
@@ -138,10 +193,10 @@ export function CurrentStockManager({ products, locations }: CurrentStockManager
                 </td>
               </tr>
             ))}
-            {products.length === 0 && (
+            {visibleProducts.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
-                  Add a product before managing current stock.
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
+                  {products.length === 0 ? "Add a product before managing current stock." : "No stock matches these filters."}
                 </td>
               </tr>
             )}

@@ -28,12 +28,18 @@ interface DataTableProps<TData, TValue> {
   columns: ColumnDef<TData, TValue>[];
   data: TData[];
   searchKey?: string;
+  categoryKey?: string;
+  categoryOptions?: string[];
+  dateKey?: string;
 }
 
 export function DataTable<TData, TValue>({
   columns,
   data,
   searchKey,
+  categoryKey,
+  categoryOptions = [],
+  dateKey,
 }: DataTableProps<TData, TValue>) {
   const [sorting, setSorting] = useState<SortingState>([]);
   const [columnFilters, setColumnFilters] = useState<ColumnFiltersState>([]);
@@ -56,7 +62,13 @@ export function DataTable<TData, TValue>({
 
   return (
     <div className="space-y-4">
-      <DataTableToolbar table={table} searchKey={searchKey} />
+      <DataTableToolbar
+        table={table}
+        searchKey={searchKey}
+        categoryKey={categoryKey}
+        categoryOptions={categoryOptions}
+        dateKey={dateKey}
+      />
       <div className="rounded-md border">
         <Table>
           <TableHeader>

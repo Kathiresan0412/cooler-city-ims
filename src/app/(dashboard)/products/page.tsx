@@ -4,7 +4,7 @@ import { PageHeader } from "@/components/shared/page-header";
 import { Button } from "@/components/ui/button";
 import { DataTable } from "@/components/shared/data-table";
 import { productColumns } from "@/components/products/product-columns";
-import { getProducts } from "@/server/queries/product.queries";
+import { getCategories, getProducts } from "@/server/queries/product.queries";
 import { requirePermission } from "@/lib/permissions";
 import { Plus, Upload } from "lucide-react";
 
@@ -12,7 +12,7 @@ export const metadata: Metadata = { title: "Products" };
 
 export default async function ProductsPage() {
   await requirePermission("products", "read");
-  const products = await getProducts();
+  const [products, categories] = await Promise.all([getProducts(), getCategories()]);
 
   return (
     <div className="space-y-6">
@@ -30,7 +30,14 @@ export default async function ProductsPage() {
           </Link>
         </Button>
       </PageHeader>
-      <DataTable columns={productColumns} data={products} searchKey="name" />
+      <DataTable
+        columns={productColumns}
+        data={products}
+        searchKey="name"
+        categoryKey="category"
+        categoryOptions={categories.map((category) => category.name)}
+        dateKey="createdAt"
+      />
     </div>
   );
 }

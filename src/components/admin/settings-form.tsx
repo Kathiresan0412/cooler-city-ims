@@ -9,7 +9,7 @@ export function SettingsForm() {
     <form className="space-y-4 rounded-lg border bg-card p-6">
       <div className="space-y-2">
         <Label htmlFor="shopName">Shop name</Label>
-        <Input id="shopName" defaultValue="Cooler City IMS" />
+        <Input id="shopName" defaultValue="Cooler City Jaffna IMS" />
       </div>
       <div className="space-y-2">
         <Label htmlFor="currency">Currency</Label>

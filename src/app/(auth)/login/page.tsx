@@ -8,7 +8,7 @@ export default function LoginPage() {
     <div className="w-full max-w-md space-y-6">
       <div className="space-y-2 text-center">
         <h1 className="text-2xl font-bold">Welcome back</h1>
-        <p className="text-muted-foreground">Sign in to Cooler City IMS</p>
+        <p className="text-muted-foreground">Sign in to Cooler City Jaffna IMS</p>
       </div>
       <LoginForm />
     </div>

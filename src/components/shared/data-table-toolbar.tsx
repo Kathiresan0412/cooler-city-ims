@@ -5,24 +5,50 @@ import { Input } from "@/components/ui/input";
 import { ColumnToggle } from "./column-toggle";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { CategoryDateFilters } from "./category-date-filters";
 
 interface DataTableToolbarProps<TData> {
   table: Table<TData>;
   searchKey?: string;
+  categoryKey?: string;
+  categoryOptions?: string[];
+  dateKey?: string;
 }
 
-export function DataTableToolbar<TData>({ table, searchKey }: DataTableToolbarProps<TData>) {
+export function DataTableToolbar<TData>({
+  table,
+  searchKey,
+  categoryKey,
+  categoryOptions = [],
+  dateKey,
+}: DataTableToolbarProps<TData>) {
   const isFiltered = table.getState().columnFilters.length > 0;
+  const dateFilter = dateKey ? table.getColumn(dateKey)?.getFilterValue() as [string, string] | undefined : undefined;
+  const setDateFilter = (fromDate: string, toDate: string) => {
+    if (!dateKey) return;
+    table.getColumn(dateKey)?.setFilterValue(fromDate || toDate ? [fromDate, toDate] : undefined);
+  };
 
   return (
-    <div className="flex items-center justify-between gap-2">
-      <div className="flex flex-1 items-center gap-2">
+    <div className="flex flex-wrap items-center justify-between gap-2">
+      <div className="flex flex-1 flex-wrap items-center gap-2">
         {searchKey && (
           <Input
             placeholder={`Search...`}
             value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
             onChange={(e) => table.getColumn(searchKey)?.setFilterValue(e.target.value)}
             className="h-8 w-64"
+          />
+        )}
+        {categoryKey && (
+          <CategoryDateFilters
+            categories={categoryOptions}
+            category={(table.getColumn(categoryKey)?.getFilterValue() as string) ?? ""}
+            onCategoryChange={(value) => table.getColumn(categoryKey)?.setFilterValue(value || undefined)}
+            fromDate={dateFilter?.[0] ?? ""}
+            onFromDateChange={(value) => setDateFilter(value, dateFilter?.[1] ?? "")}
+            toDate={dateFilter?.[1] ?? ""}
+            onToDateChange={(value) => setDateFilter(dateFilter?.[0] ?? "", value)}
           />
         )}
         {isFiltered && (

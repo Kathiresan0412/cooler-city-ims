@@ -30,7 +30,7 @@ export async function getCurrentStock() {
         category: { select: { name: true } },
         unit: { select: { abbreviation: true } },
         stockEntries: {
-          select: { id: true, locationId: true, quantity: true, location: { select: { name: true } } },
+          select: { id: true, locationId: true, quantity: true, updatedAt: true, location: { select: { name: true } } },
         },
       },
     }),
@@ -48,6 +48,10 @@ export async function getCurrentStock() {
       category: product.category?.name ?? null,
       unitAbbreviation: product.unit?.abbreviation ?? null,
       totalQuantity: product.stockEntries.reduce((sum, entry) => sum + Number(entry.quantity), 0),
+      stockUpdatedAt: product.stockEntries.reduce<Date | null>(
+        (latest, entry) => !latest || entry.updatedAt > latest ? entry.updatedAt : latest,
+        null,
+      ),
       stockByLocation: product.stockEntries.map((entry) => ({
         locationId: entry.locationId,
         quantity: Number(entry.quantity),

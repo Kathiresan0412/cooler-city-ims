@@ -1,11 +1,12 @@
 "use client";
 
-import { ColumnDef } from "@tanstack/react-table";
+import { ColumnDef, FilterFn } from "@tanstack/react-table";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { formatCurrency } from "@/lib/format";
 import { ArrowUpDown, ImageIcon, Pencil } from "lucide-react";
 import Image from "next/image";
+import { formatDate } from "@/lib/format";
 
 export type ProductRow = {
   id: string;
@@ -15,6 +16,15 @@ export type ProductRow = {
   imageUrl?: string | null;
   category?: { name: string } | null;
   unit?: { name: string; abbreviation: string } | null;
+  createdAt: Date;
+};
+
+const dateRangeFilter: FilterFn<ProductRow> = (row, columnId, filterValue) => {
+  const value = row.getValue<Date | string | null>(columnId);
+  if (!value) return false;
+  const date = value instanceof Date ? value.toISOString().slice(0, 10) : value.slice(0, 10);
+  const [fromDate, toDate] = (filterValue as [string, string] | undefined) ?? ["", ""];
+  return (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
 };
 
 export const productColumns: ColumnDef<ProductRow>[] = [
@@ -47,8 +57,25 @@ export const productColumns: ColumnDef<ProductRow>[] = [
   },
   {
     id: "category",
-    header: "Category",
+    accessorFn: (row) => row.category?.name ?? "",
+    filterFn: "equalsString",
+    header: ({ column }) => (
+      <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
+        Category <ArrowUpDown className="ml-1 h-3 w-3" />
+      </Button>
+    ),
     cell: ({ row }) => row.original.category?.name ?? "—",
+  },
+  {
+    accessorKey: "createdAt",
+    filterFn: dateRangeFilter,
+    sortingFn: "datetime",
+    header: ({ column }) => (
+      <Button variant="ghost" size="sm" onClick={() => column.toggleSorting()}>
+        Added <ArrowUpDown className="ml-1 h-3 w-3" />
+      </Button>
+    ),
+    cell: ({ row }) => formatDate(row.original.createdAt),
   },
   {
     id: "unit",

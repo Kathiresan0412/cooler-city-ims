@@ -16,6 +16,7 @@ export async function getKitchenInventoryData() {
         id: true,
         name: true,
         sku: true,
+        category: { select: { name: true } },
         unit: { select: { abbreviation: true } },
         stockEntries: {
           where: { location: { code: "WH-MAIN", isActive: true, isWarehouse: true } },
@@ -26,7 +27,14 @@ export async function getKitchenInventoryData() {
     prisma.kitchenIssue.findMany({
       orderBy: { createdAt: "desc" },
       include: {
-        product: { select: { name: true, sku: true, unit: { select: { abbreviation: true } } } },
+        product: {
+          select: {
+            name: true,
+            sku: true,
+            category: { select: { name: true } },
+            unit: { select: { abbreviation: true } },
+          },
+        },
         location: { select: { name: true } },
       },
     }),
@@ -42,6 +50,7 @@ export async function getKitchenInventoryData() {
       id: product.id,
       name: product.name,
       sku: product.sku,
+      category: product.category?.name ?? null,
       unitAbbreviation: product.unit?.abbreviation ?? null,
       availableQuantity: Number(product.stockEntries[0]?.quantity ?? 0),
     })),
@@ -51,6 +60,7 @@ export async function getKitchenInventoryData() {
       id: issue.id,
       productName: issue.product.name,
       sku: issue.product.sku,
+      category: issue.product.category?.name ?? null,
       unitAbbreviation: issue.product.unit?.abbreviation ?? null,
       locationName: issue.location.name,
       receiverName: issue.receiverName,

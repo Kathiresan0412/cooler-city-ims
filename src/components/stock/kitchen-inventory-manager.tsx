@@ -2,10 +2,12 @@
 
 import { useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
+import { ArrowUpDown } from "lucide-react";
 import { formatDate } from "@/lib/format";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { CategoryDateFilters } from "@/components/shared/category-date-filters";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { issueToKitchen, returnFromKitchen } from "@/server/actions/kitchen-inventory.actions";
@@ -28,6 +30,7 @@ interface KitchenIssueRow {
   id: string;
   productName: string;
   sku: string;
+  category: string | null;
   unitAbbreviation: string | null;
   locationName: string;
   receiverName: string;
@@ -54,6 +57,36 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
   const [notes, setNotes] = useState("");
   const [returnQuantities, setReturnQuantities] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
+  const [categoryFilter, setCategoryFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
+  const [sortField, setSortField] = useState<"category" | "date">("date");
+  const [sortDescending, setSortDescending] = useState(true);
+
+  const categories = useMemo(
+    () => [...new Set(issues.map((issue) => issue.category).filter((value): value is string => Boolean(value)))].sort(),
+    [issues],
+  );
+  const visibleIssues = useMemo(() => issues
+    .filter((issue) => !categoryFilter || issue.category === categoryFilter)
+    .filter((issue) => {
+      const date = issue.createdAt.toISOString().slice(0, 10);
+      return (!fromDate || date >= fromDate) && (!toDate || date <= toDate);
+    })
+    .sort((a, b) => {
+      const comparison = sortField === "date"
+        ? a.createdAt.getTime() - b.createdAt.getTime()
+        : (a.category ?? "").localeCompare(b.category ?? "");
+      return sortDescending ? -comparison : comparison;
+    }), [issues, categoryFilter, fromDate, toDate, sortField, sortDescending]);
+
+  function toggleSort(field: "category" | "date") {
+    if (sortField === field) setSortDescending((descending) => !descending);
+    else {
+      setSortField(field);
+      setSortDescending(field === "date");
+    }
+  }
 
   const selectedProduct = useMemo(
     () => products.find((product) => product.id === productId),
@@ -207,12 +240,30 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">Kitchen issue history</h2>
+        <CategoryDateFilters
+          categories={categories}
+          category={categoryFilter}
+          onCategoryChange={setCategoryFilter}
+          fromDate={fromDate}
+          onFromDateChange={setFromDate}
+          toDate={toDate}
+          onToDateChange={setToDate}
+        />
         <div className="overflow-x-auto rounded-md border">
           <table className="w-full min-w-[900px] text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">Date</th>
+                <th className="px-4 py-3 text-left font-medium">
+                  <Button variant="ghost" size="sm" onClick={() => toggleSort("date")}>
+                    Date <ArrowUpDown className="ml-1 h-3 w-3" />
+                  </Button>
+                </th>
                 <th className="px-4 py-3 text-left font-medium">Product</th>
+                <th className="px-4 py-3 text-left font-medium">
+                  <Button variant="ghost" size="sm" onClick={() => toggleSort("category")}>
+                    Category <ArrowUpDown className="ml-1 h-3 w-3" />
+                  </Button>
+                </th>
                 <th className="px-4 py-3 text-left font-medium">Received by</th>
                 <th className="px-4 py-3 text-left font-medium">Location</th>
                 <th className="px-4 py-3 text-right font-medium">Issued</th>
@@ -223,13 +274,14 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
               </tr>
             </thead>
             <tbody>
-              {issues.map((issue) => (
+              {visibleIssues.map((issue) => (
                 <tr key={issue.id} className="border-b last:border-0">
                   <td className="px-4 py-3">{formatDate(issue.createdAt)}</td>
                   <td className="px-4 py-3">
                     <div className="font-medium">{issue.productName}</div>
                     <div className="text-xs text-muted-foreground">{issue.sku}</div>
                   </td>
+                  <td className="px-4 py-3">{issue.category ?? "—"}</td>
                   <td className="px-4 py-3">{issue.receiverName}</td>
                   <td className="px-4 py-3">{issue.locationName}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{issue.issuedQuantity} {issue.unitAbbreviation ?? ""}</td>
@@ -260,8 +312,10 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
                   </td>
                 </tr>
               ))}
-              {issues.length === 0 && (
-                <tr><td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">No kitchen issues yet.</td></tr>
+              {visibleIssues.length === 0 && (
+                <tr><td colSpan={10} className="px-4 py-8 text-center text-muted-foreground">
+                  {issues.length === 0 ? "No kitchen issues yet." : "No kitchen issues match these filters."}
+                </td></tr>
               )}
             </tbody>
           </table>
