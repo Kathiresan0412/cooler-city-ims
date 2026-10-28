@@ -118,6 +118,19 @@ export async function issueToKitchen(data: {
           createdById: userId,
         },
       });
+      await transaction.auditLog.create({
+        data: {
+          userId,
+          action: "ISSUE",
+          resource: "Kitchen Inventory",
+          resourceId: issue.id,
+          newData: {
+            productId: parsed.data.productId,
+            receiverName: parsed.data.receiverName,
+            quantity: quantity.toNumber(),
+          },
+        },
+      });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (error) {
     return handleTransactionError(error);
@@ -189,6 +202,19 @@ export async function returnFromKitchen(data: { issueId: string; quantity: numbe
           referenceId: issue.id,
           note: "Returned from kitchen",
           createdById: userId,
+        },
+      });
+      await transaction.auditLog.create({
+        data: {
+          userId,
+          action: "RETURN",
+          resource: "Kitchen Inventory",
+          resourceId: issue.id,
+          oldData: { returnedQuantity: issue.returnedQuantity.toNumber() },
+          newData: {
+            returnedQuantity: issue.returnedQuantity.add(quantity).toNumber(),
+            quantityReturned: quantity.toNumber(),
+          },
         },
       });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });

@@ -95,6 +95,20 @@ export async function adjustProductStock(data: {
           createdById: userId,
         },
       });
+      await transaction.auditLog.create({
+        data: {
+          userId,
+          action: "ADJUST",
+          resource: "Stock",
+          resourceId: parsed.data.productId,
+          oldData: { locationId: parsed.data.locationId, quantity: Number(locationBalance) },
+          newData: {
+            locationId: parsed.data.locationId,
+            quantity: Number(nextLocationBalance),
+            movement: delta.isPositive() ? "IN" : "OUT",
+          },
+        },
+      });
     }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
   } catch (error) {
     if (error instanceof Error && !(error instanceof Prisma.PrismaClientKnownRequestError)) {

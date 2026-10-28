@@ -3,9 +3,39 @@ import { prisma } from "@/lib/prisma";
 
 const DAY_COUNT = 30;
 
+export function getActivityLog(limit = 8) {
+  return prisma.auditLog.findMany({
+    where: { action: { not: "LOGIN" } },
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      action: true,
+      resource: true,
+      createdAt: true,
+      user: { select: { name: true, email: true } },
+    },
+  });
+}
+
+export function getLoginHistory(limit = 8) {
+  return prisma.loginHistory.findMany({
+    orderBy: { createdAt: "desc" },
+    take: limit,
+    select: {
+      id: true,
+      email: true,
+      successful: true,
+      ipAddress: true,
+      createdAt: true,
+      user: { select: { name: true } },
+    },
+  });
+}
+
 export async function getDashboardOverview({ includeActivity = true } = {}) {
   const since = startOfDay(subDays(new Date(), DAY_COUNT - 1));
-  const [products, pendingTransfers, ledgerEntries, activity] = await Promise.all([
+  const [products, pendingTransfers, ledgerEntries, activity, loginHistory] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true },
       select: {
@@ -32,19 +62,8 @@ export async function getDashboardOverview({ includeActivity = true } = {}) {
         product: { select: { name: true, sku: true } },
       },
     }),
-    includeActivity
-      ? prisma.auditLog.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 8,
-      select: {
-        id: true,
-        action: true,
-        resource: true,
-        createdAt: true,
-        user: { select: { name: true, email: true } },
-      },
-      })
-      : Promise.resolve([]),
+    includeActivity ? getActivityLog() : Promise.resolve([]),
+    includeActivity ? getLoginHistory() : Promise.resolve([]),
   ]);
 
   const lowStock = products
@@ -121,5 +140,6 @@ export async function getDashboardOverview({ includeActivity = true } = {}) {
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 5),
     activity,
+    loginHistory,
   };
 }

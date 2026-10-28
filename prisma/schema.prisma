@@ -75,6 +75,7 @@ model User {
   createdStockTakes    StockTake[]
   createdKitchenIssues KitchenIssue[]
   auditLogs            AuditLog[]
+  loginHistory         LoginHistory[]
   notifications        Notification[]
 
   createdAt DateTime @default(now())
@@ -691,6 +692,22 @@ model AuditLog {
   createdAt DateTime @default(now())
 
   @@map("audit_logs")
+}
+
+model LoginHistory {
+  id        String   @id @default(cuid())
+  userId    String?
+  email     String
+  successful Boolean @default(false)
+  ipAddress String?
+  userAgent String?
+  createdAt DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@map("login_history")
 }
 
 // ─── Settings ────────────────────────────────────────────────────────────────

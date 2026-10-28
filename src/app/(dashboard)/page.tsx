@@ -6,6 +6,7 @@ import { MovementChart } from "@/components/dashboard/movement-chart";
 import { StockByCategoryChart } from "@/components/dashboard/stock-by-category-chart";
 import { TopMovingItems } from "@/components/dashboard/top-moving-items";
 import { RecentActivity } from "@/components/dashboard/recent-activity";
+import { LoginHistory } from "@/components/dashboard/login-history";
 import { getDashboardOverview } from "@/server/queries/dashboard.queries";
 import { Button } from "@/components/ui/button";
 import { ArrowRight, Plus } from "lucide-react";
@@ -53,7 +54,12 @@ export default async function DashboardPage() {
         </div>
         <LowStockList items={dashboard.lowStock} canViewProducts={canViewProducts} canViewStock={canViewStock} />
       </div>
-      {canViewActivity && <RecentActivity entries={dashboard.activity} />}
+      {canViewActivity && (
+        <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+          <RecentActivity entries={dashboard.activity} />
+          <LoginHistory entries={dashboard.loginHistory} />
+        </div>
+      )}
     </div>
   );
 }

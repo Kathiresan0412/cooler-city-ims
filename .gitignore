@@ -45,3 +45,5 @@ prisma/migrations/*
 !prisma/migrations/20261026210500_unit_description/migration.sql
 !prisma/migrations/20261026220000_kitchen_inventory/
 !prisma/migrations/20261026220000_kitchen_inventory/migration.sql
+!prisma/migrations/20261028200000_login_history/
+!prisma/migrations/20261028200000_login_history/migration.sql

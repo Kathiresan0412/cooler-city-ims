@@ -19,19 +19,36 @@ const authConfig: NextAuthConfig = {
         email: { label: "Email", type: "email" },
         password: { label: "Password", type: "password" },
       },
-      async authorize(credentials) {
+      async authorize(credentials, request) {
         const parsed = credentialsSchema.safeParse(credentials);
         if (!parsed.success) return null;
 
         const { email, password } = parsed.data;
+        const normalizedEmail = email.toLowerCase();
         const user = await prisma.user.findUnique({
-          where: { email: email.toLowerCase() },
+          where: { email: normalizedEmail },
         });
 
-        if (!user || !user.passwordHash) return null;
+        const isValid = Boolean(user?.passwordHash && await compare(password, user.passwordHash));
+        const forwardedFor = request.headers.get("x-forwarded-for");
+        const ipAddress = forwardedFor?.split(",")[0]?.trim()
+          || request.headers.get("x-real-ip");
 
-        const isValid = await compare(password, user.passwordHash);
-        if (!isValid) return null;
+        await prisma.loginHistory.create({
+          data: {
+            userId: user?.id,
+            email: normalizedEmail,
+            successful: isValid,
+            ipAddress: ipAddress?.slice(0, 100),
+            userAgent: request.headers.get("user-agent")?.slice(0, 1000),
+          },
+        });
+
+        if (!isValid || !user) return null;
+
+        await prisma.auditLog.create({
+          data: { userId: user.id, action: "LOGIN", resource: "Auth" },
+        });
 
         return {
           id: user.id,
