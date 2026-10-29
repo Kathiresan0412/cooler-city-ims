@@ -18,6 +18,9 @@ const returnSchema = z.object({
   issueId: z.string().min(1),
   quantity: quantitySchema,
 });
+const completeSchema = z.object({
+  issueId: z.string().min(1),
+});
 const MAIN_WAREHOUSE_CODE = "WH-MAIN";
 
 function validatePrecision(quantity: number) {
@@ -77,6 +80,16 @@ export async function issueToKitchen(data: {
       if (!product?.isActive) throw new Error("Selected product was not found or is inactive");
       if (!location?.isActive || !location.isWarehouse) {
         throw new Error("The active main warehouse (WH-MAIN) was not found");
+      }
+      const openIssues = await transaction.kitchenIssue.findMany({
+        where: {
+          productId: parsed.data.productId,
+          completedAt: null,
+        },
+        select: { id: true, issuedQuantity: true, returnedQuantity: true },
+      });
+      if (openIssues.some((issue) => issue.returnedQuantity.lessThan(issue.issuedQuantity))) {
+        throw new Error("This product already has an open kitchen issue. Return or complete it before issuing more.");
       }
       if (!stock || stock.quantity.lessThan(quantity)) {
         throw new Error("The main warehouse does not have enough stock");
@@ -169,9 +182,11 @@ export async function returnFromKitchen(data: { issueId: string; quantity: numbe
           locationId: true,
           issuedQuantity: true,
           returnedQuantity: true,
+          completedAt: true,
         },
       });
       if (!issue) throw new Error("Kitchen issue was not found");
+      if (issue.completedAt) throw new Error("This kitchen issue is already complete");
       if (issue.returnedQuantity.add(quantity).greaterThan(issue.issuedQuantity)) {
         throw new Error("Return quantity exceeds the amount still outstanding");
       }
@@ -179,6 +194,7 @@ export async function returnFromKitchen(data: { issueId: string; quantity: numbe
       const update = await transaction.kitchenIssue.updateMany({
         where: {
           id: issue.id,
+          completedAt: null,
           returnedQuantity: { lte: issue.issuedQuantity.sub(quantity) },
         },
         data: { returnedQuantity: { increment: quantity } },
@@ -226,5 +242,66 @@ export async function returnFromKitchen(data: { issueId: string; quantity: numbe
   revalidatePath("/stock");
   revalidatePath("/");
   revalidatePath("/products");
+  return { success: true, error: null };
+}
+
+export async function completeKitchenIssue(data: { issueId: string }) {
+  const parsed = completeSchema.safeParse(data);
+  if (!parsed.success) {
+    return { success: false, error: parsed.error.issues[0]?.message ?? "Invalid kitchen issue details" };
+  }
+
+  const session = await auth();
+  const userId = session?.user?.id;
+  if (!userId) return { success: false, error: "You must be signed in to complete a kitchen issue" };
+  if (!(await hasKitchenInventoryPermission(userId))) {
+    return { success: false, error: "You do not have permission to manage kitchen inventory" };
+  }
+
+  try {
+    await prisma.$transaction(async (transaction) => {
+      const issue = await transaction.kitchenIssue.findUnique({
+        where: { id: parsed.data.issueId },
+        select: {
+          id: true,
+          issuedQuantity: true,
+          returnedQuantity: true,
+          completedAt: true,
+        },
+      });
+      if (!issue) throw new Error("Kitchen issue was not found");
+      if (issue.completedAt || issue.returnedQuantity.greaterThanOrEqualTo(issue.issuedQuantity)) {
+        throw new Error("This kitchen issue is already closed");
+      }
+
+      const completedAt = new Date();
+      const update = await transaction.kitchenIssue.updateMany({
+        where: {
+          id: issue.id,
+          completedAt: null,
+          returnedQuantity: { lt: issue.issuedQuantity },
+        },
+        data: { completedAt },
+      });
+      if (update.count !== 1) throw new Error("Kitchen issue changed while saving. Refresh and try again.");
+
+      await transaction.auditLog.create({
+        data: {
+          userId,
+          action: "COMPLETE",
+          resource: "Kitchen Inventory",
+          resourceId: issue.id,
+          newData: {
+            completedAt: completedAt.toISOString(),
+            consumedQuantity: issue.issuedQuantity.sub(issue.returnedQuantity).toNumber(),
+          },
+        },
+      });
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
+  } catch (error) {
+    return handleTransactionError(error);
+  }
+
+  revalidatePath("/kitchen-inventory");
   return { success: true, error: null };
 }

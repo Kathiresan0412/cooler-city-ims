@@ -602,6 +602,7 @@ model KitchenIssue {
   returnedQuantity Decimal @default(0) @db.Decimal(12, 4)
   notes            String?
   createdById      String?
+  completedAt      DateTime?
 
   product   Product  @relation(fields: [productId], references: [id])
   location  Location @relation(fields: [locationId], references: [id])

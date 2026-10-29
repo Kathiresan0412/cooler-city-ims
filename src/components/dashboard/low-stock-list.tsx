@@ -44,7 +44,7 @@ export function LowStockList({
                 ) : (
                   <span className="truncate text-sm font-medium">{item.name}</span>
                 )}
-                <p className="text-xs text-muted-foreground">{item.sku}</p>
+                {/* <p className="text-xs text-muted-foreground">{item.sku}</p> */}
               </div>
               <Badge variant="destructive" className="flex-shrink-0">
                 {item.totalQty.toLocaleString()} / {item.reorderPoint.toLocaleString()}

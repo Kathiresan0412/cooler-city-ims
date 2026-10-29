@@ -48,7 +48,7 @@ export function TopMovingItems({
                     ) : (
                       <span className="block truncate text-sm font-medium">{item.name}</span>
                     )}
-                    <p className="text-xs text-muted-foreground">{item.sku}</p>
+                    {/* <p className="text-xs text-muted-foreground">{item.sku}</p> */}
                   </div>
                 </div>
                 <div className="shrink-0 text-right text-xs text-muted-foreground">

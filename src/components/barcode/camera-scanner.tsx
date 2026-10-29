@@ -57,7 +57,7 @@ export function CameraScanner() {
           {product ? (
             <>
               <p className="font-medium">{product.name}</p>
-              <p className="text-xs text-muted-foreground">SKU: {product.sku}</p>
+              {/* <p className="text-xs text-muted-foreground">SKU: {product.sku}</p> */}
             </>
           ) : (
             <p className="text-sm text-muted-foreground">Product not found</p>

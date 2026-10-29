@@ -15,7 +15,7 @@ export async function getKitchenInventoryData() {
       select: {
         id: true,
         name: true,
-        sku: true,
+        imageUrl: true,
         category: { select: { name: true } },
         unit: { select: { abbreviation: true } },
         stockEntries: {
@@ -49,7 +49,7 @@ export async function getKitchenInventoryData() {
     products: products.map((product) => ({
       id: product.id,
       name: product.name,
-      sku: product.sku,
+      imageUrl: product.imageUrl,
       category: product.category?.name ?? null,
       unitAbbreviation: product.unit?.abbreviation ?? null,
       availableQuantity: Number(product.stockEntries[0]?.quantity ?? 0),
@@ -58,6 +58,7 @@ export async function getKitchenInventoryData() {
     warehouse: mainWarehouse,
     issues: issues.map((issue) => ({
       id: issue.id,
+      productId: issue.productId,
       productName: issue.product.name,
       sku: issue.product.sku,
       category: issue.product.category?.name ?? null,
@@ -66,7 +67,10 @@ export async function getKitchenInventoryData() {
       receiverName: issue.receiverName,
       issuedQuantity: Number(issue.issuedQuantity),
       returnedQuantity: Number(issue.returnedQuantity),
-      remainingQuantity: Number(issue.issuedQuantity.sub(issue.returnedQuantity)),
+      remainingQuantity: issue.completedAt
+        ? 0
+        : Number(issue.issuedQuantity.sub(issue.returnedQuantity)),
+      completedAt: issue.completedAt,
       notes: issue.notes,
       createdAt: issue.createdAt,
     })),

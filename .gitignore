@@ -49,3 +49,5 @@ prisma/migrations/*
 !prisma/migrations/20261028200000_login_history/migration.sql
 !prisma/migrations/20261029120000_exclude_products_from_low_stock/
 !prisma/migrations/20261029120000_exclude_products_from_low_stock/migration.sql
+!prisma/migrations/20261029210000_complete_kitchen_issues/
+!prisma/migrations/20261029210000_complete_kitchen_issues/migration.sql
