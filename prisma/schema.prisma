@@ -201,7 +201,8 @@ model Product {
   costPrice    Decimal @default(0) @db.Decimal(12, 4)
   sellingPrice Decimal @default(0) @db.Decimal(12, 4)
   reorderPoint Int     @default(0)
-  isActive     Boolean @default(true)
+  isActive            Boolean @default(true)
+  excludeFromLowStock Boolean @default(false)
   isSerialized Boolean @default(false) // track by serial number
   hasVariants  Boolean @default(false)
 

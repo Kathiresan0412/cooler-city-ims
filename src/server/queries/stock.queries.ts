@@ -3,7 +3,7 @@ import { LOW_STOCK_THRESHOLD } from "@/lib/stock";
 
 export async function getLowStockProducts(limit = 10) {
   const products = await prisma.product.findMany({
-    where: { isActive: true },
+    where: { isActive: true, excludeFromLowStock: false },
     include: { stockEntries: { select: { quantity: true } } },
   });
 

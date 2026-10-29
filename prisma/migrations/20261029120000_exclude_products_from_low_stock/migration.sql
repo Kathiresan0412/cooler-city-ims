@@ -1,0 +1,2 @@
+ALTER TABLE "products"
+ADD COLUMN IF NOT EXISTS "excludeFromLowStock" BOOLEAN NOT NULL DEFAULT false;

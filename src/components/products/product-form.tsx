@@ -10,6 +10,7 @@ import { ImageUpload } from "@/components/shared/image-upload";
 import { useToast } from "@/components/ui/use-toast";
 import { useRouter } from "next/navigation";
 import { Loader2 } from "lucide-react";
+import { Checkbox } from "@/components/ui/checkbox";
 
 interface ProductFormValues {
   name: string;
@@ -17,6 +18,7 @@ interface ProductFormValues {
   unitId: string;
   costPrice: number;
   imageUrl: string;
+  excludeFromLowStock: boolean;
 }
 
 interface ProductFormProps {
@@ -27,6 +29,7 @@ interface ProductFormProps {
     categoryId: string | null;
     unitId: string | null;
     imageUrl: string | null;
+    excludeFromLowStock: boolean;
   }>;
   categories: { id: string; name: string }[];
   units: { id: string; name: string; abbreviation: string }[];
@@ -44,6 +47,7 @@ export function ProductForm({ product, categories, units }: ProductFormProps) {
       unitId: product?.unitId ?? "",
       costPrice: product?.costPrice ?? 0,
       imageUrl: product?.imageUrl ?? "",
+      excludeFromLowStock: product?.excludeFromLowStock ?? false,
     },
   });
 
@@ -120,6 +124,19 @@ export function ProductForm({ product, categories, units }: ProductFormProps) {
             })}
           />
           {form.formState.errors.costPrice && <p className="text-xs text-destructive">{form.formState.errors.costPrice.message}</p>}
+        </div>
+      </div>
+
+      <div className="flex items-start gap-3 rounded-md border p-4">
+        <Checkbox
+          id="excludeFromLowStock"
+          checked={form.watch("excludeFromLowStock")}
+          onCheckedChange={(checked) => form.setValue("excludeFromLowStock", checked === true, { shouldDirty: true })}
+          disabled={form.formState.isSubmitting}
+        />
+        <div className="space-y-1">
+          <Label htmlFor="excludeFromLowStock">Exclude from low-stock alerts</Label>
+          <p className="text-sm text-muted-foreground">Use this for products you no longer stock. It stays in your catalogue and inventory history.</p>
         </div>
       </div>
 

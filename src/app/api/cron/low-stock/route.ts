@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
            COALESCE(SUM(s.quantity), 0)::float as "totalQty"
     FROM products p
     LEFT JOIN stock s ON s."productId" = p.id
-    WHERE p."isActive" = true
+    WHERE p."isActive" = true AND p."excludeFromLowStock" = false
     GROUP BY p.id, p.name
     HAVING COALESCE(SUM(s.quantity), 0) <= ${LOW_STOCK_THRESHOLD}
   `;

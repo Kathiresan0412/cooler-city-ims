@@ -90,6 +90,7 @@ export async function getDashboardOverview({ includeActivity = true } = {}) {
         sku: true,
         costPrice: true,
         reorderPoint: true,
+        excludeFromLowStock: true,
         category: { select: { name: true } },
         stockEntries: { select: { quantity: true } },
       },
@@ -124,7 +125,7 @@ export async function getDashboardOverview({ includeActivity = true } = {}) {
         reorderPoint: LOW_STOCK_THRESHOLD,
       };
     })
-    .filter((product) => product.totalQty <= LOW_STOCK_THRESHOLD)
+    .filter((product) => !product.excludeFromLowStock && product.totalQty <= LOW_STOCK_THRESHOLD)
     .sort((a, b) => a.totalQty - b.totalQty)
   const lowStockCount = lowStock.length;
   const lowStockItems = lowStock.slice(0, 10);
