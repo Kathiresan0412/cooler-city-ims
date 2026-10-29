@@ -5,6 +5,7 @@ import Image from "next/image";
 import { cn } from "@/lib/utils";
 import { ImageIcon, Loader2, X } from "lucide-react";
 import { useToast } from "@/components/ui/use-toast";
+import { getProductImageSrc } from "@/lib/product-image";
 
 interface ImageUploadProps {
   value?: string;
@@ -63,7 +64,7 @@ export function ImageUpload({ value, onChange, onRemove, className }: ImageUploa
     <div className={cn("relative flex h-32 w-32 items-center justify-center rounded-lg border-2 border-dashed border-input bg-muted transition-colors hover:bg-muted/80", className)}>
       {value ? (
         <>
-          <Image src={value} alt="Uploaded" fill className="rounded-lg object-cover" />
+          <Image src={getProductImageSrc(value)} alt="Uploaded" fill className="rounded-lg object-cover" />
           <button
             type="button"
             onClick={onRemove}

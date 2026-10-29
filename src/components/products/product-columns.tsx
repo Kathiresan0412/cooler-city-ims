@@ -7,6 +7,7 @@ import { formatCurrency } from "@/lib/format";
 import { ArrowUpDown, ImageIcon, Pencil } from "lucide-react";
 import Image from "next/image";
 import { formatDate } from "@/lib/format";
+import { getProductImageSrc } from "@/lib/product-image";
 
 export type ProductRow = {
   id: string;
@@ -46,7 +47,7 @@ export const productColumns: ColumnDef<ProductRow>[] = [
     header: "Product Image",
     cell: ({ row }) => row.original.imageUrl ? (
       <Image
-        src={row.original.imageUrl}
+        src={getProductImageSrc(row.original.imageUrl)}
         alt={row.original.name}
         width={40}
         height={40}

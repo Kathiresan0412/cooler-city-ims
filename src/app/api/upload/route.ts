@@ -10,7 +10,8 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  if (!process.env.cooler_READ_WRITE_TOKEN) {
+  const token = process.env.cooler_READ_WRITE_TOKEN;
+  if (!token) {
     return NextResponse.json(
       { error: "Image storage is not configured. Set cooler_READ_WRITE_TOKEN and restart the app." },
       { status: 503 },
@@ -35,8 +36,10 @@ export async function POST(request: NextRequest) {
   }
 
   try {
-    const blob = await put(`uploads/${crypto.randomUUID()}-${file.name}`, file, {
-      access: "public",
+    const filename = file.name.replace(/[\\/]/g, "_");
+    const blob = await put(`uploads/${crypto.randomUUID()}-${filename}`, file, {
+      access: "private",
+      token,
     });
 
     return NextResponse.json({ url: blob.url });

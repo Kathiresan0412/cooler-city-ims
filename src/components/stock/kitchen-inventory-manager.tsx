@@ -14,6 +14,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/components/ui/use-toast";
 import { completeKitchenIssue, issueToKitchen, returnFromKitchen } from "@/server/actions/kitchen-inventory.actions";
+import { getProductImageSrc } from "@/lib/product-image";
 
 interface ProductOption {
   id: string;
@@ -232,7 +233,7 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
                     <>
                       {selectedProduct.imageUrl ? (
                         <Image
-                          src={selectedProduct.imageUrl}
+                          src={getProductImageSrc(selectedProduct.imageUrl)}
                           alt=""
                           width={32}
                           height={32}
@@ -276,7 +277,7 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
                     >
                       {product.imageUrl ? (
                         <Image
-                          src={product.imageUrl}
+                          src={getProductImageSrc(product.imageUrl)}
                           alt=""
                           width={96}
                           height={96}

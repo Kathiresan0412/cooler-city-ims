@@ -10,6 +10,7 @@ import { LocationStockTable } from "@/components/stock/location-stock-table";
 import { Pencil } from "lucide-react";
 import Image from "next/image";
 import { formatCurrency } from "@/lib/format";
+import { getProductImageSrc } from "@/lib/product-image";
 
 export const metadata: Metadata = { title: "Product Detail" };
 
@@ -34,7 +35,7 @@ export default async function ProductDetailPage({ params }: { params: Promise<{ 
       <section className="grid gap-6 rounded-lg border p-6 sm:grid-cols-[160px_1fr]">
         <div className="relative flex h-40 w-40 items-center justify-center overflow-hidden rounded-md bg-muted">
           {product.imageUrl ? (
-            <Image src={product.imageUrl} alt={product.name} fill unoptimized className="object-cover" />
+            <Image src={getProductImageSrc(product.imageUrl)} alt={product.name} fill unoptimized className="object-cover" />
           ) : (
             <span className="text-sm text-muted-foreground">No image</span>
           )}

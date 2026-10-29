@@ -35,7 +35,7 @@ npm run db:seed
 npm run dev
 ```
 
-Product image uploads use Vercel Blob. Create a Blob store in Vercel, copy its read/write token into `cooler_READ_WRITE_TOKEN` in `.env.local`, and restart the dev server. Set the same variable in your deployment environment. Uploads accept JPG, PNG, WebP, or GIF files up to 5 MB.
+Product image uploads use a private Vercel Blob store. Set its read/write token as `cooler_READ_WRITE_TOKEN` in `.env.local` and in your deployment environment, then restart the dev server. Product images are served through an authenticated app route; uploads accept JPG, PNG, WebP, or GIF files up to 5 MB.
 
 ## Project Structure
 
