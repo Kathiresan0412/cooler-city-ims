@@ -1,8 +1,9 @@
 import { prisma } from "@/lib/prisma";
+import { LOW_STOCK_THRESHOLD } from "@/lib/stock";
 
 export async function getLowStockProducts(limit = 10) {
   const products = await prisma.product.findMany({
-    where: { isActive: true, reorderPoint: { gt: 0 } },
+    where: { isActive: true },
     include: { stockEntries: { select: { quantity: true } } },
   });
 
@@ -12,9 +13,9 @@ export async function getLowStockProducts(limit = 10) {
       name: product.name,
       sku: product.sku,
       totalQty: product.stockEntries.reduce((total, stock) => total + Number(stock.quantity), 0),
-      reorderPoint: product.reorderPoint,
+      reorderPoint: LOW_STOCK_THRESHOLD,
     }))
-    .filter((product) => product.totalQty <= product.reorderPoint)
+    .filter((product) => product.totalQty <= LOW_STOCK_THRESHOLD)
     .sort((a, b) => a.totalQty - b.totalQty)
     .slice(0, limit);
 }

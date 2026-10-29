@@ -1,11 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { formatCurrency } from "@/lib/format";
-import { Package, TrendingDown, ArrowLeftRight, AlertTriangle } from "lucide-react";
+import { Package, TrendingDown, AlertTriangle } from "lucide-react";
 
 interface DashboardStats {
   totalProducts: number;
   totalStockValue: number;
-  pendingTransfers: number;
   lowStockItems: number;
 }
 
@@ -28,12 +27,6 @@ export function StatCards({ stats }: { stats: DashboardStats }) {
       value: stats.lowStockItems.toLocaleString(),
       icon: AlertTriangle,
       description: "Below reorder point",
-    },
-    {
-      title: "Pending Transfers",
-      value: stats.pendingTransfers.toLocaleString(),
-      icon: ArrowLeftRight,
-      description: "Awaiting approval or receipt",
     },
   ];
 

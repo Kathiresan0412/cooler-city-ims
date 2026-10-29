@@ -5,7 +5,9 @@ interface MovingItem {
   id: string;
   name: string;
   sku: string;
-  quantity: number;
+  unit: string | null;
+  week: number;
+  month: number;
 }
 
 export function TopMovingItems({
@@ -20,7 +22,7 @@ export function TopMovingItems({
   return (
     <Card>
       <CardHeader className="flex flex-row items-center justify-between">
-        <CardTitle className="text-sm font-semibold">Top Moving Items</CardTitle>
+        <CardTitle className="text-sm font-semibold">Most Stock Used</CardTitle>
         {canViewStock && (
           <Link href="/stock" className="text-xs text-primary hover:underline">
             View stock
@@ -29,7 +31,7 @@ export function TopMovingItems({
       </CardHeader>
       <CardContent>
         {items.length === 0 ? (
-          <p className="text-sm text-muted-foreground">No stock movements recorded in the last 30 days.</p>
+          <p className="text-sm text-muted-foreground">No sales or kitchen stock issues recorded in the last 30 days.</p>
         ) : (
           <div className="space-y-4">
             {items.map((item, index) => (
@@ -49,9 +51,10 @@ export function TopMovingItems({
                     <p className="text-xs text-muted-foreground">{item.sku}</p>
                   </div>
                 </div>
-                <span className="shrink-0 text-sm font-medium">
-                  {item.quantity.toLocaleString()} <span className="text-xs text-muted-foreground">units moved</span>
-                </span>
+                <div className="shrink-0 text-right text-xs text-muted-foreground">
+                  <p><span className="font-medium text-foreground">{item.week.toLocaleString()} {item.unit ?? ""}</span> used in 7 days</p>
+                  <p><span className="font-medium text-foreground">{item.month.toLocaleString()} {item.unit ?? ""}</span> used this month</p>
+                </div>
               </div>
             ))}
           </div>

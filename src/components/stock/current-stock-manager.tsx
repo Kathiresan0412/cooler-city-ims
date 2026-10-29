@@ -47,7 +47,7 @@ export function CurrentStockManager({ products, locations }: CurrentStockManager
   const [categoryFilter, setCategoryFilter] = useState("");
   const [fromDate, setFromDate] = useState("");
   const [toDate, setToDate] = useState("");
-  const [sortField, setSortField] = useState<"category" | "date">("category");
+  const [sortField, setSortField] = useState<"category" | "date" | "quantity">("category");
   const [sortDescending, setSortDescending] = useState(false);
 
   const categories = useMemo(
@@ -65,11 +65,13 @@ export function CurrentStockManager({ products, locations }: CurrentStockManager
     .sort((a, b) => {
       const comparison = sortField === "category"
         ? (a.category ?? "").localeCompare(b.category ?? "")
-        : (a.stockUpdatedAt?.getTime() ?? 0) - (b.stockUpdatedAt?.getTime() ?? 0);
+        : sortField === "date"
+          ? (a.stockUpdatedAt?.getTime() ?? 0) - (b.stockUpdatedAt?.getTime() ?? 0)
+          : a.totalQuantity - b.totalQuantity;
       return sortDescending ? -comparison : comparison;
     }), [products, categoryFilter, fromDate, toDate, sortField, sortDescending]);
 
-  function toggleSort(field: "category" | "date") {
+  function toggleSort(field: "category" | "date" | "quantity") {
     if (sortField === field) setSortDescending((descending) => !descending);
     else {
       setSortField(field);
@@ -173,7 +175,11 @@ export function CurrentStockManager({ products, locations }: CurrentStockManager
                 </Button>
               </th>
               <th className="px-4 py-3 text-left font-medium">Unit Abbreviation</th>
-              <th className="px-4 py-3 text-right font-medium">Qty</th>
+              <th className="px-4 py-3 text-right font-medium">
+                <Button variant="ghost" size="sm" onClick={() => toggleSort("quantity")}>
+                  Qty <ArrowUpDown className="ml-1 h-3 w-3" />
+                </Button>
+              </th>
               <th className="px-4 py-3 text-right font-medium">Actions</th>
             </tr>
           </thead>

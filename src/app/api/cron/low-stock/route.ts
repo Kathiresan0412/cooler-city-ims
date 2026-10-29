@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
+import { LOW_STOCK_THRESHOLD } from "@/lib/stock";
 
 // Called by Vercel Cron — secured with a shared secret header
 export async function GET(request: NextRequest) {
@@ -8,17 +9,17 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Find products below reorder point across all locations
+  // Find products at or below the shared low-stock threshold across all locations.
   const lowStockItems = await prisma.$queryRaw<
     { productId: string; name: string; totalQty: number; reorderPoint: number }[]
   >`
-    SELECT p.id as "productId", p.name, p."reorderPoint",
+    SELECT p.id as "productId", p.name, ${LOW_STOCK_THRESHOLD} as "reorderPoint",
            COALESCE(SUM(s.quantity), 0)::float as "totalQty"
     FROM products p
     LEFT JOIN stock s ON s."productId" = p.id
-    WHERE p."isActive" = true AND p."reorderPoint" > 0
-    GROUP BY p.id, p.name, p."reorderPoint"
-    HAVING COALESCE(SUM(s.quantity), 0) <= p."reorderPoint"
+    WHERE p."isActive" = true
+    GROUP BY p.id, p.name
+    HAVING COALESCE(SUM(s.quantity), 0) <= ${LOW_STOCK_THRESHOLD}
   `;
 
   if (lowStockItems.length === 0) {

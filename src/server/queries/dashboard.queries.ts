@@ -1,5 +1,6 @@
-import { format, subDays, startOfDay } from "date-fns";
+import { format, subDays, startOfDay, startOfMonth } from "date-fns";
 import { prisma } from "@/lib/prisma";
+import { LOW_STOCK_THRESHOLD } from "@/lib/stock";
 
 const DAY_COUNT = 30;
 
@@ -33,9 +34,54 @@ export function getLoginHistory(limit = 8) {
   });
 }
 
+export async function getActivityLogPage(page: number, pageSize: number) {
+  const where = { action: { not: "LOGIN" } };
+  const total = await prisma.auditLog.count({ where });
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const entries = await prisma.auditLog.findMany({
+    where,
+    orderBy: { createdAt: "desc" },
+    skip: (currentPage - 1) * pageSize,
+    take: pageSize,
+    select: {
+      id: true,
+      action: true,
+      resource: true,
+      createdAt: true,
+      user: { select: { name: true, email: true } },
+    },
+  });
+
+  return { entries, total, page: currentPage, totalPages };
+}
+
+export async function getLoginHistoryPage(page: number, pageSize: number) {
+  const total = await prisma.loginHistory.count();
+  const totalPages = Math.max(1, Math.ceil(total / pageSize));
+  const currentPage = Math.min(page, totalPages);
+  const entries = await prisma.loginHistory.findMany({
+    orderBy: { createdAt: "desc" },
+    skip: (currentPage - 1) * pageSize,
+    take: pageSize,
+    select: {
+      id: true,
+      email: true,
+      successful: true,
+      ipAddress: true,
+      createdAt: true,
+      user: { select: { name: true } },
+    },
+  });
+
+  return { entries, total, page: currentPage, totalPages };
+}
+
 export async function getDashboardOverview({ includeActivity = true } = {}) {
-  const since = startOfDay(subDays(new Date(), DAY_COUNT - 1));
-  const [products, pendingTransfers, ledgerEntries, activity, loginHistory] = await Promise.all([
+  const now = new Date();
+  const since = startOfDay(subDays(now, DAY_COUNT - 1));
+  const monthSince = startOfMonth(now);
+  const [products, ledgerEntries, activity, loginHistory] = await Promise.all([
     prisma.product.findMany({
       where: { isActive: true },
       select: {
@@ -48,22 +94,20 @@ export async function getDashboardOverview({ includeActivity = true } = {}) {
         stockEntries: { select: { quantity: true } },
       },
     }),
-    prisma.transfer.count({
-      where: { status: { in: ["PENDING_APPROVAL", "APPROVED", "DISPATCHED"] } },
-    }),
     prisma.stockLedger.findMany({
-      where: { createdAt: { gte: since } },
+      where: { createdAt: { gte: monthSince < since ? monthSince : since } },
       orderBy: { createdAt: "asc" },
       select: {
         productId: true,
+        movementType: true,
         quantityIn: true,
         quantityOut: true,
         createdAt: true,
-        product: { select: { name: true, sku: true } },
+        product: { select: { name: true, sku: true, unit: { select: { abbreviation: true } } } },
       },
     }),
-    includeActivity ? getActivityLog() : Promise.resolve([]),
-    includeActivity ? getLoginHistory() : Promise.resolve([]),
+    includeActivity ? getActivityLog(10) : Promise.resolve([]),
+    includeActivity ? getLoginHistory(10) : Promise.resolve([]),
   ]);
 
   const lowStock = products
@@ -77,16 +121,17 @@ export async function getDashboardOverview({ includeActivity = true } = {}) {
         name: product.name,
         sku: product.sku,
         totalQty,
-        reorderPoint: product.reorderPoint,
+        reorderPoint: LOW_STOCK_THRESHOLD,
       };
     })
-    .filter((product) => product.reorderPoint > 0 && product.totalQty <= product.reorderPoint)
+    .filter((product) => product.totalQty <= LOW_STOCK_THRESHOLD)
     .sort((a, b) => a.totalQty - b.totalQty)
   const lowStockCount = lowStock.length;
   const lowStockItems = lowStock.slice(0, 10);
 
   const movementByDay = new Map<string, { inbound: number; outbound: number }>();
-  const movingProducts = new Map<string, { name: string; sku: string; quantity: number }>();
+  const weekSince = startOfDay(subDays(new Date(), 6));
+  const movingProducts = new Map<string, { name: string; sku: string; unit: string | null; week: number; month: number }>();
   for (let offset = 0; offset < DAY_COUNT; offset += 1) {
     const date = startOfDay(subDays(new Date(), DAY_COUNT - 1 - offset));
     movementByDay.set(format(date, "yyyy-MM-dd"), { inbound: 0, outbound: 0 });
@@ -102,12 +147,17 @@ export async function getDashboardOverview({ includeActivity = true } = {}) {
       day.outbound += outbound;
     }
 
+    // Transfers only relocate stock. Count sales and kitchen issues as stock used.
+    if (!(["SALE_ISSUE", "KITCHEN_ISSUE"] as string[]).includes(entry.movementType)) continue;
     const moving = movingProducts.get(entry.productId) ?? {
       name: entry.product.name,
       sku: entry.product.sku,
-      quantity: 0,
+      unit: entry.product.unit?.abbreviation ?? null,
+      week: 0,
+      month: 0,
     };
-    moving.quantity += inbound + outbound;
+    if (entry.createdAt >= monthSince) moving.month += outbound;
+    if (entry.createdAt >= weekSince) moving.week += outbound;
     movingProducts.set(entry.productId, moving);
   }
 
@@ -127,7 +177,6 @@ export async function getDashboardOverview({ includeActivity = true } = {}) {
     stats: {
       totalProducts: products.length,
       totalStockValue,
-      pendingTransfers,
       lowStockItems: lowStockCount,
     },
     lowStock: lowStockItems,
@@ -137,7 +186,7 @@ export async function getDashboardOverview({ includeActivity = true } = {}) {
       .sort((a, b) => b.quantity - a.quantity)
       .slice(0, 6),
     topMovingItems: Array.from(movingProducts, ([id, product]) => ({ id, ...product }))
-      .sort((a, b) => b.quantity - a.quantity)
+      .sort((a, b) => b.month - a.month)
       .slice(0, 5),
     activity,
     loginHistory,
