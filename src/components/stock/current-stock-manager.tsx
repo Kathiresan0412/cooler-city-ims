@@ -143,12 +143,13 @@ export function CurrentStockManager({ products, locations }: CurrentStockManager
   return (
     <div className="space-y-4">
       <div className="flex justify-end">
-        <Button onClick={openAddDialog} disabled={locations.length === 0 || products.length === 0}>
+        <Button className="w-full sm:w-auto" onClick={openAddDialog} disabled={locations.length === 0 || products.length === 0}>
           <PackagePlus className="h-4 w-4" />
           Add Stock
         </Button>
       </div>
 
+      <div className="overflow-x-auto pb-1">
       <CategoryDateFilters
         categories={categories}
         category={categoryFilter}
@@ -158,8 +159,9 @@ export function CurrentStockManager({ products, locations }: CurrentStockManager
         toDate={toDate}
         onToDateChange={setToDate}
       />
+      </div>
 
-      <div className="overflow-hidden rounded-md border">
+      <div className="hidden overflow-hidden rounded-md border md:block">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/50">
             <tr>
@@ -211,6 +213,34 @@ export function CurrentStockManager({ products, locations }: CurrentStockManager
         {locations.length === 0 && (
           <p className="border-t px-4 py-3 text-sm text-destructive">
             Add an active location before managing stock quantities.
+          </p>
+        )}
+      </div>
+
+      <div className="space-y-3 md:hidden">
+        {visibleProducts.map((product) => (
+          <article key={product.id} className="rounded-xl border bg-card p-4 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <h3 className="truncate font-semibold">{product.name}</h3>
+                <p className="mt-1 text-sm text-muted-foreground">{product.category ?? "Uncategorized"}</p>
+              </div>
+              <div className="shrink-0 rounded-lg bg-muted px-3 py-2 text-right">
+                <p className="text-xl font-bold tabular-nums">{product.totalQuantity}</p>
+                <p className="text-xs text-muted-foreground">{product.unitAbbreviation ?? "units"}</p>
+              </div>
+            </div>
+            <div className="mt-3 flex items-center justify-between gap-3 border-t pt-3">
+              <p className="text-xs text-muted-foreground">Updated {formatDate(product.stockUpdatedAt)}</p>
+              <Button type="button" variant="outline" size="sm" onClick={() => openEditDialog(product)} disabled={locations.length === 0}>
+                <Pencil className="mr-1 h-4 w-4" /> Update
+              </Button>
+            </div>
+          </article>
+        ))}
+        {visibleProducts.length === 0 && (
+          <p className="rounded-xl border px-4 py-8 text-center text-sm text-muted-foreground">
+            {products.length === 0 ? "Add a product before managing current stock." : "No stock matches these filters."}
           </p>
         )}
       </div>

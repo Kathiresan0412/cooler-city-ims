@@ -11,14 +11,14 @@ interface DataTablePaginationProps<TData> {
 
 export function DataTablePagination<TData>({ table }: DataTablePaginationProps<TData>) {
   return (
-    <div className="flex items-center justify-between px-2">
-      <p className="text-sm text-muted-foreground">
+    <div className="flex flex-col gap-3 px-2 sm:flex-row sm:items-center sm:justify-between">
+      <p className="text-xs text-muted-foreground sm:text-sm">
         {table.getFilteredSelectedRowModel().rows.length} of{" "}
         {table.getFilteredRowModel().rows.length} row(s) selected.
       </p>
-      <div className="flex items-center gap-6">
+      <div className="flex flex-wrap items-center justify-between gap-3 sm:justify-end sm:gap-6">
         <div className="flex items-center gap-2">
-          <span className="text-sm text-muted-foreground">Rows per page</span>
+          <span className="hidden text-sm text-muted-foreground sm:inline">Rows per page</span>
           <Select
             value={`${table.getState().pagination.pageSize}`}
             onValueChange={(v) => table.setPageSize(Number(v))}

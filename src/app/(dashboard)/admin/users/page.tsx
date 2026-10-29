@@ -26,7 +26,7 @@ export default async function UsersPage() {
           </Link>
         </Button>
       </PageHeader>
-      <div className="overflow-hidden rounded-md border">
+      <div className="hidden overflow-hidden rounded-md border md:block">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/50">
             <tr>
@@ -70,6 +70,28 @@ export default async function UsersPage() {
             )}
           </tbody>
         </table>
+      </div>
+      <div className="space-y-3 md:hidden">
+        {users.map((user) => {
+          const displayName = user.name || user.email;
+          return (
+            <article key={user.id} className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+              <div>
+                <Link href={`/admin/users/${user.id}`} className="font-semibold hover:underline">{displayName}</Link>
+                <p className="break-all text-sm text-muted-foreground">{user.email}</p>
+              </div>
+              <div className="flex justify-between border-t pt-3 text-sm">
+                <span>{user.role?.name ?? "No role"}</span>
+                <span className="text-muted-foreground">{user.isActive ? "Active" : "Inactive"}</span>
+              </div>
+              <div className="flex justify-end border-t pt-2">
+                <Button asChild variant="outline" size="sm"><Link href={`/admin/users/${user.id}`}>Edit</Link></Button>
+                <DeleteUserButton userId={user.id} userName={displayName} />
+              </div>
+            </article>
+          );
+        })}
+        {users.length === 0 && <p className="rounded-xl border px-4 py-8 text-center text-sm text-muted-foreground">No users found. Create a user to get started.</p>}
       </div>
     </div>
   );

@@ -69,7 +69,7 @@ export function DataTable<TData, TValue>({
         categoryOptions={categoryOptions}
         dateKey={dateKey}
       />
-      <div className="rounded-md border">
+      <div className="hidden rounded-md border md:block">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -104,6 +104,29 @@ export function DataTable<TData, TValue>({
             )}
           </TableBody>
         </Table>
+      </div>
+      <div className="space-y-3 md:hidden">
+        {table.getRowModel().rows.length ? table.getRowModel().rows.map((row) => (
+          <article key={row.id} className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+            {row.getVisibleCells().filter((cell) => cell.column.id !== "actions").map((cell) => (
+              <div key={cell.id} className="flex min-w-0 items-start justify-between gap-3">
+                <span className="shrink-0 text-xs font-medium text-muted-foreground">
+                  {cell.column.id.replace(/([a-z0-9])([A-Z])/g, "$1 $2").replace(/^./, (letter) => letter.toUpperCase())}
+                </span>
+                <div className="min-w-0 text-right text-sm">
+                  {flexRender(cell.column.columnDef.cell, cell.getContext())}
+                </div>
+              </div>
+            ))}
+            {row.getVisibleCells().filter((cell) => cell.column.id === "actions").map((cell) => (
+              <div key={cell.id} className="flex justify-end border-t pt-2">
+                {flexRender(cell.column.columnDef.cell, cell.getContext())}
+              </div>
+            ))}
+          </article>
+        )) : (
+          <p className="rounded-xl border px-4 py-8 text-center text-sm text-muted-foreground">No results found.</p>
+        )}
       </div>
       <DataTablePagination table={table} />
     </div>

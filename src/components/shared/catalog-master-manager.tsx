@@ -143,7 +143,7 @@ export function CatalogMasterManager({ type, rows }: CatalogMasterManagerProps) 
         </Button>
       </form>
 
-      <div className="overflow-hidden rounded-md border">
+      <div className="hidden overflow-hidden rounded-md border md:block">
         <table className="w-full text-sm">
           <thead className="border-b bg-muted/50">
             <tr>
@@ -237,6 +237,56 @@ export function CatalogMasterManager({ type, rows }: CatalogMasterManagerProps) 
             )}
           </tbody>
         </table>
+      </div>
+      <div className="space-y-3 md:hidden">
+        {rows.map((row) => {
+          const category = isCategory ? row as CategoryRow : null;
+          const unit = isCategory ? null : row as UnitRow;
+          const editing = editingId === row.id;
+          return (
+            <article key={row.id} className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+              <div className="space-y-2">
+                {editing ? (
+                  <Input aria-label={`${isCategory ? "Category" : "Unit"} name`} value={editName} onChange={(event) => setEditName(event.target.value)} maxLength={100} disabled={isSaving} />
+                ) : <h3 className="font-semibold">{row.name}</h3>}
+                {isCategory ? (
+                  editing ? <Input aria-label="Description" value={editDescription} onChange={(event) => setEditDescription(event.target.value)} maxLength={500} disabled={isSaving} />
+                    : <p className="text-sm text-muted-foreground">{category?.description || "No description"}</p>
+                ) : (
+                  <p className="text-sm text-muted-foreground">Abbreviation: {unit?.abbreviation}</p>
+                )}
+                {editing && !isCategory && <Input aria-label="Abbreviation" value={editAbbreviation} onChange={(event) => setEditAbbreviation(event.target.value)} maxLength={20} disabled={isSaving} />}
+              </div>
+              <div className="flex justify-end gap-1 border-t pt-2">
+                {editing ? (
+                  <>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => saveEdit(row.id)} disabled={isSaving || !editName.trim() || (!isCategory && !editAbbreviation.trim())} aria-label="Save changes">
+                      {isSaving ? <Loader2 className="h-4 w-4 animate-spin" /> : <Save className="h-4 w-4" />}
+                    </Button>
+                    <Button type="button" variant="ghost" size="icon" onClick={() => setEditingId(null)} disabled={isSaving} aria-label="Cancel editing"><X className="h-4 w-4" /></Button>
+                  </>
+                ) : (
+                  <>
+                    <Button type="button" variant="ghost" size="icon" disabled={isSaving} aria-label={`Edit ${row.name}`} onClick={() => {
+                      setEditingId(row.id);
+                      setEditName(row.name);
+                      setEditAbbreviation(unit?.abbreviation ?? "");
+                      setEditDescription(category?.description ?? "");
+                    }}><Pencil className="h-4 w-4" /></Button>
+                    <ConfirmDialog
+                      title={`Delete ${row.name}?`}
+                      description={`Delete this ${type}? It cannot be removed while referenced by products${isCategory ? " or child categories" : ""}.`}
+                      confirmLabel="Delete"
+                      onConfirm={() => removeItem(row.id)}
+                      trigger={<Button type="button" variant="ghost" size="icon" disabled={isSaving} aria-label={`Delete ${row.name}`}><Trash2 className="h-4 w-4 text-destructive" /></Button>}
+                    />
+                  </>
+                )}
+              </div>
+            </article>
+          );
+        })}
+        {rows.length === 0 && <p className="rounded-xl border px-4 py-8 text-center text-sm text-muted-foreground">No {isCategory ? "categories" : "units"} yet. Add one above.</p>}
       </div>
     </div>
   );

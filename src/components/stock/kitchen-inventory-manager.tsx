@@ -249,7 +249,7 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
           toDate={toDate}
           onToDateChange={setToDate}
         />
-        <div className="overflow-x-auto rounded-md border">
+        <div className="hidden overflow-x-auto rounded-md border md:block">
           <table className="w-full min-w-[900px] text-sm">
             <thead className="border-b bg-muted/50">
               <tr>
@@ -319,6 +319,42 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
               )}
             </tbody>
           </table>
+        </div>
+        <div className="space-y-3 md:hidden">
+          {visibleIssues.map((issue) => (
+            <article key={issue.id} className="space-y-3 rounded-xl border bg-card p-4 shadow-sm">
+              <div className="flex items-start justify-between gap-3">
+                <div className="min-w-0">
+                  <h3 className="font-semibold">{issue.productName}</h3>
+                  <p className="text-xs text-muted-foreground">{issue.sku} · {issue.category ?? "Uncategorized"}</p>
+                </div>
+                <span className="shrink-0 rounded-lg bg-muted px-3 py-2 text-sm font-semibold tabular-nums">{issue.remainingQuantity} left</span>
+              </div>
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2 border-t pt-3 text-sm">
+                <div><span className="text-muted-foreground">Issued </span>{issue.issuedQuantity} {issue.unitAbbreviation ?? ""}</div>
+                <div><span className="text-muted-foreground">Returned </span>{issue.returnedQuantity}</div>
+                <div><span className="text-muted-foreground">Received by </span>{issue.receiverName}</div>
+                <div><span className="text-muted-foreground">Location </span>{issue.locationName}</div>
+                <div className="col-span-2 text-muted-foreground">{formatDate(issue.createdAt)}{issue.notes ? ` · ${issue.notes}` : ""}</div>
+              </div>
+              {issue.remainingQuantity > 0 ? (
+                <div className="flex gap-2 border-t pt-3">
+                  <Input
+                    aria-label={`Return quantity for ${issue.productName}`}
+                    type="number"
+                    min="0.0001"
+                    max={issue.remainingQuantity}
+                    step="0.0001"
+                    value={returnQuantities[issue.id] ?? ""}
+                    onChange={(event) => setReturnQuantities((current) => ({ ...current, [issue.id]: event.target.value }))}
+                    disabled={isSaving}
+                  />
+                  <Button type="button" variant="outline" onClick={() => handleReturn(issue.id)} disabled={isSaving}>Return</Button>
+                </div>
+              ) : <p className="border-t pt-3 text-sm text-muted-foreground">Return complete</p>}
+            </article>
+          ))}
+          {visibleIssues.length === 0 && <p className="rounded-xl border px-4 py-8 text-center text-sm text-muted-foreground">{issues.length === 0 ? "No kitchen issues yet." : "No kitchen issues match these filters."}</p>}
         </div>
       </section>
     </div>

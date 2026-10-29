@@ -30,14 +30,14 @@ export function DataTableToolbar<TData>({
   };
 
   return (
-    <div className="flex flex-wrap items-center justify-between gap-2">
-      <div className="flex flex-1 flex-wrap items-center gap-2">
+    <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+      <div className="flex min-w-0 flex-1 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
         {searchKey && (
           <Input
             placeholder={`Search...`}
             value={(table.getColumn(searchKey)?.getFilterValue() as string) ?? ""}
             onChange={(e) => table.getColumn(searchKey)?.setFilterValue(e.target.value)}
-            className="h-8 w-64"
+            className="h-10 w-full sm:h-8 sm:w-64"
           />
         )}
         {categoryKey && (

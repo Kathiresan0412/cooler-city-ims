@@ -14,6 +14,9 @@ export const metadata: Metadata = {
     template: `%s | ${siteConfig.name}`,
   },
   description: siteConfig.description,
+  applicationName: siteConfig.name,
+  appleWebApp: { capable: true, title: siteConfig.name, statusBarStyle: "default" },
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({
