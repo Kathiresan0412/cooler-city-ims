@@ -10,10 +10,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const formData = await request.formData();
-  const file = formData.get("file") as File | null;
+  if (!process.env.cooler_READ_WRITE_TOKEN) {
+    return NextResponse.json(
+      { error: "Image storage is not configured. Set cooler_READ_WRITE_TOKEN and restart the app." },
+      { status: 503 },
+    );
+  }
 
-  if (!file) {
+  const formData = await request.formData();
+  const file = formData.get("file");
+
+  if (!(file instanceof File)) {
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
@@ -27,9 +34,17 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: "File too large (max 5MB)" }, { status: 400 });
   }
 
-  const blob = await put(`uploads/${Date.now()}-${file.name}`, file, {
-    access: "public",
-  });
+  try {
+    const blob = await put(`uploads/${crypto.randomUUID()}-${file.name}`, file, {
+      access: "public",
+    });
 
-  return NextResponse.json({ url: blob.url });
+    return NextResponse.json({ url: blob.url });
+  } catch (error) {
+    console.error("Image upload failed", error);
+    return NextResponse.json(
+      { error: "Image storage could not save the file. Check the Blob token and try again." },
+      { status: 500 },
+    );
+  }
 }

@@ -35,6 +35,8 @@ npm run db:seed
 npm run dev
 ```
 
+Product image uploads use Vercel Blob. Create a Blob store in Vercel, copy its read/write token into `cooler_READ_WRITE_TOKEN` in `.env.local`, and restart the dev server. Set the same variable in your deployment environment. Uploads accept JPG, PNG, WebP, or GIF files up to 5 MB.
+
 ## Project Structure
 
 - `src/app/` — Next.js App Router pages and API routes
