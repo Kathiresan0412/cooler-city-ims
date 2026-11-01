@@ -337,7 +337,7 @@ export function KitchenInventoryManager({ products, users, warehouse, issues, cu
             />
             {selectedProduct && (
               <p className="text-xs text-muted-foreground">
-                Main warehouse available: {availableQuantity} {selectedProduct.unitAbbreviation ?? ""}
+                Main warehouse available: {availableQuantity}.({selectedProduct.unitAbbreviation ?? ""})
               </p>
             )}
             {selectedProductHasOpenIssue && (
