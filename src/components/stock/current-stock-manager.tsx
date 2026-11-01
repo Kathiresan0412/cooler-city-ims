@@ -301,8 +301,8 @@ export function CurrentStockManager({ products, locations }: CurrentStockManager
               <Input
                 id="stock-quantity"
                 type="number"
-                min={mode === "add" ? "0.0001" : "0"}
-                step="0.0001"
+                min="1"
+                step="1"
                 value={quantity}
                 onChange={(event) => setQuantity(event.target.value)}
                 disabled={isSaving}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
 import { ArrowUpDown, ImageIcon } from "lucide-react";
@@ -52,14 +52,16 @@ interface KitchenInventoryManagerProps {
   users: UserOption[];
   warehouse: { id: string; name: string } | null;
   issues: KitchenIssueRow[];
+  currentUserId: string;
 }
 
-export function KitchenInventoryManager({ products, users, warehouse, issues }: KitchenInventoryManagerProps) {
+export function KitchenInventoryManager({ products, users, warehouse, issues, currentUserId }: KitchenInventoryManagerProps) {
   const router = useRouter();
   const { toast } = useToast();
+  const [issueRows, setIssueRows] = useState(issues);
   const [productId, setProductId] = useState("");
-  const [receiverId, setReceiverId] = useState("");
-  const [quantity, setQuantity] = useState("");
+  const [receiverId, setReceiverId] = useState(currentUserId);
+  const [quantity, setQuantity] = useState("1");
   const [notes, setNotes] = useState("");
   const [includeNotes, setIncludeNotes] = useState(false);
   const [returnQuantities, setReturnQuantities] = useState<Record<string, string>>({});
@@ -73,11 +75,15 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
   const [productPickerOpen, setProductPickerOpen] = useState(false);
   const [productSearch, setProductSearch] = useState("");
 
+  useEffect(() => {
+    setIssueRows(issues);
+  }, [issues]);
+
   const categories = useMemo(
-    () => [...new Set(issues.map((issue) => issue.category).filter((value): value is string => Boolean(value)))].sort(),
-    [issues],
+    () => [...new Set(issueRows.map((issue) => issue.category).filter((value): value is string => Boolean(value)))].sort(),
+    [issueRows],
   );
-  const visibleIssues = useMemo(() => issues
+  const visibleIssues = useMemo(() => issueRows
     .filter((issue) => !historyProductId || issue.productId === historyProductId)
     .filter((issue) => !categoryFilter || issue.category === categoryFilter)
     .filter((issue) => {
@@ -89,10 +95,10 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
         ? a.createdAt.getTime() - b.createdAt.getTime()
         : (a.category ?? "").localeCompare(b.category ?? "");
       return sortDescending ? -comparison : comparison;
-    }), [issues, historyProductId, categoryFilter, fromDate, toDate, sortField, sortDescending]);
+    }), [issueRows, historyProductId, categoryFilter, fromDate, toDate, sortField, sortDescending]);
   const openProductIds = useMemo(
-    () => new Set(issues.filter((issue) => !issue.completedAt && issue.remainingQuantity > 0).map((issue) => issue.productId)),
-    [issues],
+    () => new Set(issueRows.filter((issue) => !issue.completedAt && issue.remainingQuantity > 0).map((issue) => issue.productId)),
+    [issueRows],
   );
   const filteredProducts = useMemo(() => {
     const search = productSearch.trim().toLocaleLowerCase();
@@ -135,15 +141,19 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
         quantity: parsedQuantity,
         notes,
       });
-      if (!result.success) {
-        toast({ title: "Could not issue stock", description: result.error, variant: "destructive" });
+      if (!result.success || !result.issue) {
+        toast({ title: "Could not issue stock", description: result.error || "Please try again.", variant: "destructive" });
         return;
       }
+      setIssueRows((current) => [
+        result.issue,
+        ...current.filter((issue) => issue.id !== result.issue.id),
+      ]);
       toast({ title: "Stock issued to kitchen" });
       setHistoryProductId(productId);
       setProductId("");
-      setReceiverId("");
-      setQuantity("");
+      setReceiverId(currentUserId);
+      setQuantity("1");
       setNotes("");
       setIncludeNotes(false);
       router.refresh();
@@ -177,7 +187,7 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
 
   async function handleReturn(issueId: string) {
     const parsedQuantity = Number(returnQuantities[issueId]);
-    const issue = issues.find((entry) => entry.id === issueId);
+    const issue = issueRows.find((entry) => entry.id === issueId);
     if (!issue || !Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
       toast({ title: "Invalid return quantity", description: "Enter a quantity greater than zero.", variant: "destructive" });
       return;
@@ -437,7 +447,7 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
             <tbody>
               {visibleIssues.map((issue) => (
                 <tr key={issue.id} className="border-b last:border-0">
-                  <td className="px-4 py-3">{formatDate(issue.createdAt)}</td>
+                  <td className="px-4 py-3">{formatDate(issue.createdAt, { hour: "numeric", minute: "2-digit" })}</td>
                   <td className="px-4 py-3">
                     <div className="font-medium">{issue.productName}</div>
                     {/* <div className="text-xs text-muted-foreground">{issue.sku}</div> */}
@@ -480,7 +490,7 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
               ))}
               {visibleIssues.length === 0 && (
                 <tr><td colSpan={9} className="px-4 py-8 text-center text-muted-foreground">
-                  {issues.length === 0 ? "No kitchen issues yet." : "No kitchen issues match these filters."}
+                  {issueRows.length === 0 ? "No kitchen issues yet." : "No kitchen issues match these filters."}
                 </td></tr>
               )}
             </tbody>
@@ -503,7 +513,7 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
                 <div><span className="text-muted-foreground">Returned </span>{issue.returnedQuantity}</div>
                 <div><span className="text-muted-foreground">Received by </span>{issue.receiverName}</div>
                 <div><span className="text-muted-foreground">Location </span>{issue.locationName}</div>
-                <div className="col-span-2 text-muted-foreground">{formatDate(issue.createdAt)}{issue.notes ? ` · ${issue.notes}` : ""}</div>
+                <div className="col-span-2 text-muted-foreground">{formatDate(issue.createdAt, { hour: "numeric", minute: "2-digit" })}{issue.notes ? ` · ${issue.notes}` : ""}</div>
               </div>
               {issue.completedAt ? (
                 <p className="border-t pt-3 text-sm text-muted-foreground">
@@ -527,7 +537,7 @@ export function KitchenInventoryManager({ products, users, warehouse, issues }: 
               ) : <p className="border-t pt-3 text-sm text-muted-foreground">Returned</p>}
             </article>
           ))}
-          {visibleIssues.length === 0 && <p className="rounded-xl border px-4 py-8 text-center text-sm text-muted-foreground">{issues.length === 0 ? "No kitchen issues yet." : "No kitchen issues match these filters."}</p>}
+          {visibleIssues.length === 0 && <p className="rounded-xl border px-4 py-8 text-center text-sm text-muted-foreground">{issueRows.length === 0 ? "No kitchen issues yet." : "No kitchen issues match these filters."}</p>}
         </div>
       </section>
     </div>

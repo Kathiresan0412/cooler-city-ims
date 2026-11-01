@@ -61,8 +61,7 @@ export async function issueToKitchen(data: {
   }
 
   const quantity = new Prisma.Decimal(parsed.data.quantity);
-  try {
-    await prisma.$transaction(async (transaction) => {
+  const createdIssue = await prisma.$transaction(async (transaction) => {
       const [product, location, stock] = await Promise.all([
         transaction.product.findUnique({ where: { id: parsed.data.productId }, select: { id: true, isActive: true } }),
         transaction.location.findUnique({
@@ -115,6 +114,17 @@ export async function issueToKitchen(data: {
           notes: parsed.data.notes || null,
           createdById: userId,
         },
+        include: {
+          product: {
+            select: {
+              name: true,
+              sku: true,
+              category: { select: { name: true } },
+              unit: { select: { abbreviation: true } },
+            },
+          },
+          location: { select: { name: true } },
+        },
       });
       await transaction.stockLedger.create({
         data: {
@@ -144,16 +154,36 @@ export async function issueToKitchen(data: {
           },
         },
       });
-    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable });
-  } catch (error) {
-    return handleTransactionError(error);
+      return issue;
+  }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch((error: unknown) => handleTransactionError(error));
+  if ("success" in createdIssue) {
+    return createdIssue;
   }
 
   revalidatePath("/kitchen-inventory");
   revalidatePath("/stock");
   revalidatePath("/");
   revalidatePath("/products");
-  return { success: true, error: null };
+  return {
+    success: true,
+    error: null,
+    issue: {
+      id: createdIssue.id,
+      productId: createdIssue.productId,
+      productName: createdIssue.product.name,
+      sku: createdIssue.product.sku,
+      category: createdIssue.product.category?.name ?? null,
+      unitAbbreviation: createdIssue.product.unit?.abbreviation ?? null,
+      locationName: createdIssue.location.name,
+      receiverName: createdIssue.receiverName,
+      issuedQuantity: Number(createdIssue.issuedQuantity),
+      returnedQuantity: Number(createdIssue.returnedQuantity),
+      remainingQuantity: Number(createdIssue.issuedQuantity.sub(createdIssue.returnedQuantity)),
+      completedAt: createdIssue.completedAt,
+      notes: createdIssue.notes,
+      createdAt: createdIssue.createdAt,
+    },
+  };
 }
 
 export async function returnFromKitchen(data: { issueId: string; quantity: number }) {

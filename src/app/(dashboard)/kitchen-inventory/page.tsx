@@ -11,7 +11,8 @@ export const dynamic = "force-dynamic";
 
 export default async function KitchenInventoryPage() {
   const session = await auth();
-  if (!(await hasKitchenInventoryPermission(session?.user?.id))) redirect("/unauthorized");
+  const currentUserId = session?.user?.id;
+  if (!currentUserId || !(await hasKitchenInventoryPermission(currentUserId))) redirect("/unauthorized");
   const data = await getKitchenInventoryData();
 
   return (
@@ -20,7 +21,7 @@ export default async function KitchenInventoryPage() {
         title="Kitchen Inventory"
         description="Issue products from stock and record unused quantities returned from the kitchen."
       />
-      <KitchenInventoryManager {...data} />
+      <KitchenInventoryManager {...data} currentUserId={currentUserId} />
     </div>
   );
 }
