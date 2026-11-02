@@ -13,7 +13,7 @@ export default async function EditUserPage({ params }: { params: Promise<{ id: s
   const [user, roles] = await Promise.all([
     prisma.user.findUnique({
       where: { id },
-      select: { name: true, email: true, roleId: true },
+      select: { name: true, email: true, roleId: true, defaultShift: true },
     }),
     prisma.role.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);

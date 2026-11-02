@@ -1,6 +1,6 @@
 "use server";
 
-import { Prisma } from "@prisma/client";
+import { Prisma, WorkShift } from "@prisma/client";
 import { compare, hash } from "bcryptjs";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -12,6 +12,7 @@ const userDetailsSchema = z.object({
   name: z.string().trim().min(1, "Name is required").max(120),
   email: z.string().trim().email("Enter a valid email address").max(255),
   roleId: z.string().min(1, "Role is required"),
+  defaultShift: z.nativeEnum(WorkShift),
 });
 
 const createUserSchema = userDetailsSchema.extend({
@@ -114,6 +115,7 @@ export async function createUser(data: {
   email: string;
   password: string;
   roleId: string;
+  defaultShift: WorkShift;
 }) {
   await requirePermission("users", "create");
   const parsed = createUserSchema.safeParse(data);
@@ -131,6 +133,7 @@ export async function createUser(data: {
         email: parsed.data.email.toLowerCase(),
         passwordHash: await hash(parsed.data.password, 12),
         roleId: parsed.data.roleId,
+        defaultShift: parsed.data.defaultShift,
       },
       select: { id: true },
     });
@@ -146,7 +149,7 @@ export async function createUser(data: {
 
 export async function updateUser(
   userId: string,
-  data: { name: string; email: string; password?: string; roleId: string }
+  data: { name: string; email: string; password?: string; roleId: string; defaultShift: WorkShift }
 ) {
   await requirePermission("users", "update");
   const parsedId = z.string().min(1).safeParse(userId);
@@ -165,6 +168,7 @@ export async function updateUser(
         name: parsed.data.name,
         email: parsed.data.email.toLowerCase(),
         roleId: parsed.data.roleId,
+        defaultShift: parsed.data.defaultShift,
         ...(parsed.data.password
           ? { passwordHash: await hash(parsed.data.password, 12) }
           : {}),

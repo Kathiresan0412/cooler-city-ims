@@ -59,12 +59,15 @@ model User {
   isActive      Boolean   @default(true)
   roleId        String?
   locationId    String? // default location for this user
+  defaultShift  WorkShift @default(NINE_TO_SIX)
 
   role     Role?     @relation(fields: [roleId], references: [id])
   location Location? @relation(fields: [locationId], references: [id])
 
   accounts Account[]
   sessions Session[]
+  shiftSchedules ShiftScheduleRule[]
+  leaves         UserLeave[]
 
   createdGRNs          GRN[]
   createdTransfers     Transfer[]
@@ -82,6 +85,36 @@ model User {
   updatedAt DateTime @updatedAt
 
   @@map("users")
+}
+
+model ShiftScheduleRule {
+  id         String       @id @default(cuid())
+  userId     String
+  shift      WorkShift
+  startsOn   DateTime     @db.Date
+  endsOn     DateTime?    @db.Date
+  repeat     ShiftRepeat  @default(ONCE)
+  weekdays  Int[]        @default([])
+  createdAt  DateTime     @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startsOn])
+  @@map("shift_schedule_rules")
+}
+
+model UserLeave {
+  id        String   @id @default(cuid())
+  userId    String
+  startsOn  DateTime @db.Date
+  endsOn    DateTime @db.Date
+  reason    String?
+  createdAt DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, startsOn, endsOn])
+  @@map("user_leaves")
 }
 
 model Role {
@@ -259,6 +292,17 @@ model SerialNumber {
   updatedAt DateTime @updatedAt
 
   @@map("serial_numbers")
+}
+
+enum WorkShift {
+  NINE_TO_SIX
+  TWO_TO_ELEVEN
+}
+
+enum ShiftRepeat {
+  ONCE
+  DAILY
+  WEEKLY
 }
 
 enum SerialNumberStatus {

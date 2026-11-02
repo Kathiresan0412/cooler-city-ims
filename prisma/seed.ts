@@ -71,6 +71,7 @@ const PERMISSIONS: { resource: string; action: string; label: string }[] = [
   { resource: "users", action: "create", label: "Create Users" },
   { resource: "users", action: "update", label: "Update Users" },
   { resource: "users", action: "delete", label: "Delete Users" },
+  { resource: "shifts", action: "manage", label: "Manage Shifts and Leave" },
   { resource: "roles", action: "read", label: "View Roles" },
   { resource: "roles", action: "manage", label: "Manage Roles" },
   { resource: "settings", action: "read", label: "View Settings" },
@@ -151,6 +152,17 @@ async function main() {
       where: { roleId_permissionId: { roleId: role.id, permissionId: kitchenPermission.id } },
       update: {},
       create: { roleId: role.id, permissionId: kitchenPermission.id },
+    });
+  }
+  const shiftsPermission = allPermissions.find(
+    (permission) => permission.resource === "shifts" && permission.action === "manage"
+  );
+  if (!shiftsPermission) throw new Error("Shift Schedule permission was not seeded");
+  for (const role of [adminRole, managerRole]) {
+    await prisma.rolePermission.upsert({
+      where: { roleId_permissionId: { roleId: role.id, permissionId: shiftsPermission.id } },
+      update: {},
+      create: { roleId: role.id, permissionId: shiftsPermission.id },
     });
   }
   void managerRole;

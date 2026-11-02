@@ -1,0 +1,333 @@
+"use client";
+
+import { useState } from "react";
+import type { FormEvent } from "react";
+import { Loader2, Trash2 } from "lucide-react";
+import type { ShiftRepeat, WorkShift } from "@prisma/client";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/components/ui/use-toast";
+import {
+  createShiftSchedule,
+  createUserLeave,
+  deleteShiftSchedule,
+  deleteUserLeave,
+} from "@/server/actions/shift.actions";
+import { useRouter } from "next/navigation";
+
+const weekdays = [
+  { value: 0, label: "Sun" },
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+];
+
+type ScheduleUser = {
+  id: string;
+  name: string | null;
+  email: string;
+  defaultShift: WorkShift;
+  shiftSchedules: {
+    id: string;
+    shift: WorkShift;
+    startsOn: string;
+    endsOn: string | null;
+    repeat: ShiftRepeat;
+    weekdays: number[];
+  }[];
+  leaves: {
+    id: string;
+    startsOn: string;
+    endsOn: string;
+    reason: string | null;
+  }[];
+};
+
+function shiftLabel(shift: WorkShift) {
+  return shift === "NINE_TO_SIX" ? "9:00 AM - 6:00 PM" : "2:00 PM - 11:00 PM";
+}
+
+function formatDate(value: string) {
+  return new Intl.DateTimeFormat("en", {
+    dateStyle: "medium",
+    timeZone: "UTC",
+  }).format(new Date(`${value}T00:00:00.000Z`));
+}
+
+function repeatLabel(rule: ScheduleUser["shiftSchedules"][number]) {
+  if (rule.repeat === "ONCE") return "Once";
+  if (rule.repeat === "DAILY") return "Every day";
+  return weekdays
+    .filter((day) => rule.weekdays.includes(day.value))
+    .map((day) => day.label)
+    .join(", ");
+}
+
+export function ShiftScheduleManager({ users }: { users: ScheduleUser[] }) {
+  const router = useRouter();
+  const { toast } = useToast();
+  const [repeat, setRepeat] = useState<ShiftRepeat>("WEEKLY");
+  const [selectedDays, setSelectedDays] = useState<number[]>(weekdays.map((day) => day.value));
+  const [savingSchedule, setSavingSchedule] = useState(false);
+  const [savingLeave, setSavingLeave] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
+
+  async function submitSchedule(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    setSavingSchedule(true);
+    try {
+      const result = await createShiftSchedule({
+        userId: String(values.get("userId") ?? ""),
+        shift: String(values.get("shift") ?? "") as WorkShift,
+        startsOn: String(values.get("startsOn") ?? ""),
+        endsOn: String(values.get("endsOn") ?? ""),
+        repeat,
+        weekdays: repeat === "WEEKLY" ? selectedDays : [],
+      });
+      if (!result.success) {
+        toast({ title: "Could not save schedule", description: result.error, variant: "destructive" });
+        return;
+      }
+      form.reset();
+      setRepeat("WEEKLY");
+      setSelectedDays(weekdays.map((day) => day.value));
+      toast({ title: "Shift schedule saved" });
+      router.refresh();
+    } catch {
+      toast({ title: "Could not save schedule", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setSavingSchedule(false);
+    }
+  }
+
+  async function submitLeave(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const values = new FormData(form);
+    setSavingLeave(true);
+    try {
+      const result = await createUserLeave({
+        userId: String(values.get("userId") ?? ""),
+        startsOn: String(values.get("startsOn") ?? ""),
+        endsOn: String(values.get("endsOn") ?? ""),
+        reason: String(values.get("reason") ?? ""),
+      });
+      if (!result.success) {
+        toast({ title: "Could not save leave", description: result.error, variant: "destructive" });
+        return;
+      }
+      form.reset();
+      toast({ title: "Leave recorded" });
+      router.refresh();
+    } catch {
+      toast({ title: "Could not save leave", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setSavingLeave(false);
+    }
+  }
+
+  async function removeSchedule(id: string) {
+    setDeletingId(id);
+    try {
+      const result = await deleteShiftSchedule(id);
+      if (!result.success) {
+        toast({ title: "Could not remove schedule", description: result.error, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Shift schedule removed" });
+      router.refresh();
+    } catch {
+      toast({ title: "Could not remove schedule", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  async function removeLeave(id: string) {
+    setDeletingId(id);
+    try {
+      const result = await deleteUserLeave(id);
+      if (!result.success) {
+        toast({ title: "Could not remove leave", description: result.error, variant: "destructive" });
+        return;
+      }
+      toast({ title: "Leave removed" });
+      router.refresh();
+    } catch {
+      toast({ title: "Could not remove leave", description: "Please try again.", variant: "destructive" });
+    } finally {
+      setDeletingId(null);
+    }
+  }
+
+  return (
+    <div className="grid gap-6 xl:grid-cols-2">
+      <section className="space-y-5 rounded-lg border bg-card p-5">
+        <div>
+          <h2 className="text-lg font-semibold">Assign a shift</h2>
+          <p className="text-sm text-muted-foreground">
+            A new rule applies on and after its start date. Earlier dates are unchanged; newer rules take priority.
+          </p>
+        </div>
+        <form onSubmit={submitSchedule} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="schedule-user">User</Label>
+            <select id="schedule-user" name="userId" required disabled={!users.length || savingSchedule} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>{user.name || user.email}</option>
+              ))}
+            </select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="schedule-shift">Shift</Label>
+            <select id="schedule-shift" name="shift" defaultValue="NINE_TO_SIX" disabled={savingSchedule} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              <option value="NINE_TO_SIX">9:00 AM - 6:00 PM</option>
+              <option value="TWO_TO_ELEVEN">2:00 PM - 11:00 PM</option>
+            </select>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="schedule-start">Starts on</Label>
+              <Input id="schedule-start" name="startsOn" type="date" required disabled={savingSchedule} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="schedule-end">Ends on (optional)</Label>
+              <Input id="schedule-end" name="endsOn" type="date" disabled={repeat === "ONCE" || savingSchedule} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="schedule-repeat">Repeat</Label>
+            <select
+              id="schedule-repeat"
+              value={repeat}
+              onChange={(event) => setRepeat(event.target.value as ShiftRepeat)}
+              disabled={savingSchedule}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="ONCE">Only this date</option>
+              <option value="DAILY">Every day</option>
+              <option value="WEEKLY">Selected days each week</option>
+            </select>
+          </div>
+          {repeat === "WEEKLY" && (
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">Repeat on</legend>
+              <div className="flex flex-wrap gap-2">
+                {weekdays.map((day) => (
+                  <label key={day.value} className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedDays.includes(day.value)}
+                      disabled={savingSchedule}
+                      onChange={(event) => setSelectedDays((current) =>
+                        event.target.checked
+                          ? [...current, day.value].sort((a, b) => a - b)
+                          : current.filter((value) => value !== day.value)
+                      )}
+                    />
+                    {day.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
+          <p className="text-xs text-muted-foreground">
+            Leave the end date empty to keep a repeating rule active until a later rule overrides it.
+          </p>
+          <Button type="submit" disabled={!users.length || savingSchedule}>
+            {savingSchedule && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save shift
+          </Button>
+          {!users.length && <p className="text-sm text-muted-foreground">No active users to schedule.</p>}
+        </form>
+
+        <div className="space-y-3 border-t pt-4">
+          <h3 className="font-medium">Shift rules</h3>
+          {users.flatMap((user) => user.shiftSchedules.map((rule) => ({ user, rule }))).length === 0 ? (
+            <p className="text-sm text-muted-foreground">No date-specific shift rules yet.</p>
+          ) : (
+            <ul className="space-y-2">
+              {users.flatMap((user) => user.shiftSchedules.map((rule) => ({ user, rule }))).map(({ user, rule }) => (
+                <li key={rule.id} className="flex items-start justify-between gap-3 rounded-md border p-3 text-sm">
+                  <div>
+                    <p className="font-medium">{user.name || user.email} · {shiftLabel(rule.shift)}</p>
+                    <p className="text-muted-foreground">
+                      {repeatLabel(rule)} from {formatDate(rule.startsOn)}
+                      {rule.repeat !== "ONCE" && ` until ${rule.endsOn ? formatDate(rule.endsOn) : "overridden"}`}
+                    </p>
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" aria-label="Remove shift rule" disabled={deletingId === rule.id} onClick={() => removeSchedule(rule.id)}>
+                    {deletingId === rule.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+
+      <section className="space-y-5 rounded-lg border bg-card p-5">
+        <div>
+          <h2 className="text-lg font-semibold">Record leave</h2>
+          <p className="text-sm text-muted-foreground">Leave overrides scheduled shifts for every date in the range.</p>
+        </div>
+        <form onSubmit={submitLeave} className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="leave-user">User</Label>
+            <select id="leave-user" name="userId" required disabled={!users.length || savingLeave} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
+              {users.map((user) => (
+                <option key={user.id} value={user.id}>{user.name || user.email}</option>
+              ))}
+            </select>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="leave-start">First day</Label>
+              <Input id="leave-start" name="startsOn" type="date" required disabled={savingLeave} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="leave-end">Last day</Label>
+              <Input id="leave-end" name="endsOn" type="date" required disabled={savingLeave} />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="leave-reason">Note (optional)</Label>
+            <Input id="leave-reason" name="reason" maxLength={250} disabled={savingLeave} />
+          </div>
+          <Button type="submit" disabled={!users.length || savingLeave}>
+            {savingLeave && <Loader2 className="h-4 w-4 animate-spin" />}
+            Save leave
+          </Button>
+        </form>
+
+        <div className="space-y-3 border-t pt-4">
+          <h3 className="font-medium">Leave records</h3>
+          {users.flatMap((user) => user.leaves.map((leave) => ({ user, leave }))).length === 0 ? (
+            <p className="text-sm text-muted-foreground">No leave recorded.</p>
+          ) : (
+            <ul className="space-y-2">
+              {users.flatMap((user) => user.leaves.map((leave) => ({ user, leave }))).map(({ user, leave }) => (
+                <li key={leave.id} className="flex items-start justify-between gap-3 rounded-md border p-3 text-sm">
+                  <div>
+                    <p className="font-medium">{user.name || user.email}</p>
+                    <p className="text-muted-foreground">{formatDate(leave.startsOn)} - {formatDate(leave.endsOn)}</p>
+                    {leave.reason && <p className="text-muted-foreground">{leave.reason}</p>}
+                  </div>
+                  <Button type="button" variant="ghost" size="icon" aria-label="Remove leave record" disabled={deletingId === leave.id} onClick={() => removeLeave(leave.id)}>
+                    {deletingId === leave.id ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash2 className="h-4 w-4" />}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}

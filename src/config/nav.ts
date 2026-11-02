@@ -1,5 +1,5 @@
 import type { LucideIcon } from "lucide-react";
-import { BarChart3, Box, ChefHat, Home, Package, Settings, Truck, Users, Warehouse } from "lucide-react";
+import { BarChart3, Box, CalendarDays, ChefHat, Home, Package, Settings, Truck, Users, Warehouse } from "lucide-react";
 
 export type NavItem = {
   href: string;
@@ -31,5 +31,6 @@ export const navItems: NavItem[] = [
   // { href: "/notifications", label: "Notifications", icon: BellRing },
   // { href: "/barcode", label: "Barcode", icon: ScanLine },
   { href: "/admin/users", label: "Users", icon: Users, permission: { resource: "users", action: "read" } },
+  { href: "/admin/schedule", label: "Shift Schedule", icon: CalendarDays, permission: { resource: "shifts", action: "manage" } },
   { href: "/admin/roles", label: "Roles", icon: Truck, permission: { resource: "roles", action: "read" } },
 ];

@@ -33,6 +33,7 @@ export default async function UsersPage() {
               <th className="px-4 py-3 text-left font-medium">Name</th>
               <th className="px-4 py-3 text-left font-medium">Email</th>
               <th className="px-4 py-3 text-left font-medium">Role</th>
+              <th className="px-4 py-3 text-left font-medium">Default shift</th>
               <th className="px-4 py-3 text-left font-medium">Status</th>
               <th className="px-4 py-3 text-right font-medium">Actions</th>
             </tr>
@@ -49,6 +50,7 @@ export default async function UsersPage() {
                   </td>
                   <td className="px-4 py-3">{user.email}</td>
                   <td className="px-4 py-3">{user.role?.name ?? "No role"}</td>
+                  <td className="px-4 py-3">{user.defaultShift === "NINE_TO_SIX" ? "9:00 AM - 6:00 PM" : "2:00 PM - 11:00 PM"}</td>
                   <td className="px-4 py-3">{user.isActive ? "Active" : "Inactive"}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex items-center">
@@ -63,7 +65,7 @@ export default async function UsersPage() {
             })}
             {users.length === 0 && (
               <tr>
-                <td colSpan={5} className="px-4 py-8 text-center text-muted-foreground">
+                <td colSpan={6} className="px-4 py-8 text-center text-muted-foreground">
                   No users found. Create a user to get started.
                 </td>
               </tr>
@@ -81,7 +83,7 @@ export default async function UsersPage() {
                 <p className="break-all text-sm text-muted-foreground">{user.email}</p>
               </div>
               <div className="flex justify-between border-t pt-3 text-sm">
-                <span>{user.role?.name ?? "No role"}</span>
+                <span>{user.role?.name ?? "No role"} · {user.defaultShift === "NINE_TO_SIX" ? "9:00 AM - 6:00 PM" : "2:00 PM - 11:00 PM"}</span>
                 <span className="text-muted-foreground">{user.isActive ? "Active" : "Inactive"}</span>
               </div>
               <div className="flex justify-end border-t pt-2">

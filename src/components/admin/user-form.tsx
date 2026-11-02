@@ -14,7 +14,7 @@ import { useRouter } from "next/navigation";
 interface UserFormProps {
   userId?: string;
   roles: { id: string; name: string }[];
-  initialUser?: { name: string | null; email: string; roleId: string | null };
+  initialUser?: { name: string | null; email: string; roleId: string | null; defaultShift: WorkShift };
 }
 
 interface UserFormValues {
@@ -22,6 +22,7 @@ interface UserFormValues {
   email: string;
   password: string;
   roleId: string;
+  defaultShift: WorkShift;
 }
 
 export function UserForm({ userId, roles, initialUser }: UserFormProps) {
@@ -35,9 +36,11 @@ export function UserForm({ userId, roles, initialUser }: UserFormProps) {
       email: initialUser?.email ?? "",
       password: "",
       roleId: initialUser?.roleId ?? "",
+      defaultShift: initialUser?.defaultShift ?? "NINE_TO_SIX",
     },
   });
   const selectedRoleId = form.watch("roleId");
+  const selectedShift = form.watch("defaultShift");
 
   async function onSubmit(values: UserFormValues) {
     if (!values.roleId) {
@@ -134,6 +137,23 @@ export function UserForm({ userId, roles, initialUser }: UserFormProps) {
         </Select>
         {form.formState.errors.roleId && <p className="text-sm text-destructive">{form.formState.errors.roleId.message}</p>}
         {roles.length === 0 && <p className="text-xs text-destructive">Create a role before adding or editing users.</p>}
+      </div>
+      <div className="space-y-2">
+        <Label htmlFor="user-default-shift">Default shift</Label>
+        <Select
+          value={selectedShift}
+          onValueChange={(value: WorkShift) => form.setValue("defaultShift", value, { shouldDirty: true })}
+          disabled={form.formState.isSubmitting}
+        >
+          <SelectTrigger id="user-default-shift">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="NINE_TO_SIX">9:00 AM - 6:00 PM</SelectItem>
+            <SelectItem value="TWO_TO_ELEVEN">2:00 PM - 11:00 PM</SelectItem>
+          </SelectContent>
+        </Select>
+        <p className="text-xs text-muted-foreground">Used when no date-specific schedule is set.</p>
       </div>
       <div className="flex gap-3">
         <Button type="submit" disabled={form.formState.isSubmitting || roles.length === 0}>
