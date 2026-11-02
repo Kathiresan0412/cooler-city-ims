@@ -37,6 +37,24 @@ npm run dev
 
 Product image uploads use a private Vercel Blob store. Set its read/write token as `cooler_READ_WRITE_TOKEN` in `.env.local` and in your deployment environment, then restart the dev server. Product images are served through an authenticated app route; uploads accept JPG, PNG, WebP, or GIF files up to 5 MB.
 
+## Daily Database Backups
+
+The database backup script uses PostgreSQL's `pg_dump` command and saves plain `.sql` files to `backups/database/` by default. It keeps the five most recent daily backups and removes older ones after a successful dump. The backup directory is excluded from Git.
+
+Install the PostgreSQL client tools on the machine that runs the app, ensure `DATABASE_URL` is available in `.env.local` or the process environment, and run a test backup with:
+
+```bash
+npm run db:backup
+```
+
+To run it daily on a self-hosted Linux server, add a cron entry (replace the path with the absolute application directory):
+
+```cron
+0 2 * * * cd /path/to/cooler-city-ims && npm run db:backup >> /var/log/cooler-city-ims-db-backup.log 2>&1
+```
+
+This runs at 2:00 AM in the server's local time. The app directory must be on persistent storage; deployments with an ephemeral or read-only filesystem need a persistent mounted volume. SQL backups contain sensitive data, so restrict access to the backup directory and log.
+
 ## Project Structure
 
 - `src/app/` — Next.js App Router pages and API routes

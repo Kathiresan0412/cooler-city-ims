@@ -455,7 +455,7 @@ export function KitchenInventoryManager({ products, users, warehouse, issues, cu
                   <td className="px-4 py-3">{issue.category ?? "—"}</td>
                   <td className="px-4 py-3">{issue.receiverName}</td>
                   {/* <td className="px-4 py-3">{issue.locationName}</td> */}
-                  <td className="px-4 py-3 text-right tabular-nums">{issue.issuedQuantity} {issue.unitAbbreviation ?? ""}</td>
+                  <td className="px-4 py-3 text-right tabular-nums">{issue.issuedQuantity} ({issue.unitAbbreviation ?? ""})</td>
                   <td className="px-4 py-3 text-right tabular-nums">{issue.returnedQuantity}</td>
                   <td className="px-4 py-3 text-right tabular-nums">{issue.remainingQuantity}</td>
                   <td className="px-4 py-3">{issue.notes || "—"}</td>
