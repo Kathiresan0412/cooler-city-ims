@@ -13,6 +13,7 @@ const issueSchema = z.object({
   receiverName: z.string().trim().min(1).max(120),
   quantity: quantitySchema,
   notes: z.string().trim().max(500).optional(),
+  notifyAdmins: z.boolean().optional(),
 });
 const returnSchema = z.object({
   issueId: z.string().min(1),
@@ -45,6 +46,7 @@ export async function issueToKitchen(data: {
   receiverName: string;
   quantity: number;
   notes?: string;
+  notifyAdmins?: boolean;
 }) {
   const parsed = issueSchema.safeParse(data);
   if (!parsed.success) {
@@ -154,10 +156,53 @@ export async function issueToKitchen(data: {
           },
         },
       });
-      return issue;
+      return { issue, balanceAfter };
   }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).catch((error: unknown) => handleTransactionError(error));
   if ("success" in createdIssue) {
     return createdIssue;
+  }
+
+  const issue = createdIssue.issue;
+  let notificationCount = 0;
+  let emailCount = 0;
+  if (parsed.data.notifyAdmins) {
+    try {
+      const recipients = await prisma.user.findMany({
+        where: { isActive: true, role: { name: { in: ["Admin", "Manager"] } } },
+        select: { id: true, name: true, email: true },
+      });
+      const unit = issue.product.unit?.abbreviation ? ` ${issue.product.unit.abbreviation}` : "";
+      const remaining = createdIssue.balanceAfter.toString();
+      const message = `${issue.issuedQuantity.toString()}${unit} of ${issue.product.name} was issued to the kitchen for ${issue.receiverName}. ${remaining}${unit} remain in ${issue.location.name}.`;
+      await prisma.notification.createMany({
+        data: recipients.map((recipient) => ({
+          userId: recipient.id,
+          title: "Kitchen stock issued",
+          message,
+          type: "KITCHEN_ISSUE",
+          link: "/kitchen-inventory",
+        })),
+      });
+      notificationCount = recipients.length;
+
+      const apiKey = process.env.RESEND_API_KEY;
+      const from = process.env.EMAIL_FROM;
+      if (apiKey && from && recipients.length > 0) {
+        const emailResponse = await fetch("https://api.resend.com/emails", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            from,
+            to: recipients.map((recipient) => recipient.email),
+            subject: `Kitchen stock issued: ${issue.product.name}`,
+            text: `${message}\nSKU: ${issue.product.sku}\nIssued by: ${session?.user?.name ?? session?.user?.email ?? "A staff member"}${parsed.data.notes ? `\nNote: ${parsed.data.notes}` : ""}`,
+          }),
+        });
+        if (emailResponse.ok) emailCount = recipients.length;
+      }
+    } catch (error) {
+      console.error("Could not send kitchen issue notifications", error);
+    }
   }
 
   revalidatePath("/kitchen-inventory");
@@ -168,21 +213,23 @@ export async function issueToKitchen(data: {
     success: true,
     error: null,
     issue: {
-      id: createdIssue.id,
-      productId: createdIssue.productId,
-      productName: createdIssue.product.name,
-      sku: createdIssue.product.sku,
-      category: createdIssue.product.category?.name ?? null,
-      unitAbbreviation: createdIssue.product.unit?.abbreviation ?? null,
-      locationName: createdIssue.location.name,
-      receiverName: createdIssue.receiverName,
-      issuedQuantity: Number(createdIssue.issuedQuantity),
-      returnedQuantity: Number(createdIssue.returnedQuantity),
-      remainingQuantity: Number(createdIssue.issuedQuantity.sub(createdIssue.returnedQuantity)),
-      completedAt: createdIssue.completedAt,
-      notes: createdIssue.notes,
-      createdAt: createdIssue.createdAt,
+      id: issue.id,
+      productId: issue.productId,
+      productName: issue.product.name,
+      sku: issue.product.sku,
+      category: issue.product.category?.name ?? null,
+      unitAbbreviation: issue.product.unit?.abbreviation ?? null,
+      locationName: issue.location.name,
+      receiverName: issue.receiverName,
+      issuedQuantity: Number(issue.issuedQuantity),
+      returnedQuantity: Number(issue.returnedQuantity),
+      remainingQuantity: Number(issue.issuedQuantity.sub(issue.returnedQuantity)),
+      completedAt: issue.completedAt,
+      notes: issue.notes,
+      createdAt: issue.createdAt,
     },
+    notificationCount,
+    emailCount,
   };
 }
 

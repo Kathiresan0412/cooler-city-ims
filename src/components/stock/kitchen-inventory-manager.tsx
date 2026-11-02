@@ -64,6 +64,7 @@ export function KitchenInventoryManager({ products, users, warehouse, issues, cu
   const [quantity, setQuantity] = useState("1");
   const [notes, setNotes] = useState("");
   const [includeNotes, setIncludeNotes] = useState(false);
+  const [notifyAdmins, setNotifyAdmins] = useState(false);
   const [returnQuantities, setReturnQuantities] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [categoryFilter, setCategoryFilter] = useState("");
@@ -140,6 +141,7 @@ export function KitchenInventoryManager({ products, users, warehouse, issues, cu
         receiverName: selectedReceiver.name?.trim() || selectedReceiver.email,
         quantity: parsedQuantity,
         notes,
+        notifyAdmins,
       });
       if (!result.success || !result.issue) {
         toast({ title: "Could not issue stock", description: result.error || "Please try again.", variant: "destructive" });
@@ -149,13 +151,21 @@ export function KitchenInventoryManager({ products, users, warehouse, issues, cu
         result.issue,
         ...current.filter((issue) => issue.id !== result.issue.id),
       ]);
-      toast({ title: "Stock issued to kitchen" });
+      toast({
+        title: "Stock issued to kitchen",
+        description: notifyAdmins
+          ? result.emailCount > 0
+            ? `Admins and managers were notified in the app and by email.`
+            : `Admins and managers were notified in the app. Email is not configured or could not be sent.`
+          : undefined,
+      });
       setHistoryProductId(productId);
       setProductId("");
       setReceiverId(currentUserId);
       setQuantity("1");
       setNotes("");
       setIncludeNotes(false);
+      setNotifyAdmins(false);
       router.refresh();
     } catch {
       toast({ title: "Could not issue stock", description: "Please try again.", variant: "destructive" });
@@ -310,6 +320,17 @@ export function KitchenInventoryManager({ products, users, warehouse, issues, cu
                 </div>
               </PopoverContent>
             </Popover>
+          </div>
+          <div className="sm:col-span-2 lg:col-span-4">
+            <div className="flex items-center gap-2">
+              <Checkbox
+                id="kitchen-notify-admins"
+                checked={notifyAdmins}
+                onCheckedChange={(checked) => setNotifyAdmins(checked === true)}
+                disabled={isSaving}
+              />
+              <Label htmlFor="kitchen-notify-admins">Notify admins and managers (in app and by email)</Label>
+            </div>
           </div>
           <div className="space-y-2">
             <Label htmlFor="kitchen-receiver">Received by</Label>
