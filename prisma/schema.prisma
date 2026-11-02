@@ -68,6 +68,9 @@ model User {
   sessions Session[]
   shiftSchedules ShiftScheduleRule[]
   leaves         UserLeave[]
+  shiftSwapRequestsSent     ShiftSwapRequest[] @relation("ShiftSwapRequester")
+  shiftSwapRequestsReceived ShiftSwapRequest[] @relation("ShiftSwapRecipient")
+  shiftDayOverrides         ShiftDayOverride[]
 
   createdGRNs          GRN[]
   createdTransfers     Transfer[]
@@ -117,6 +120,43 @@ model UserLeave {
 
   @@index([userId, startsOn, endsOn])
   @@map("user_leaves")
+}
+
+model ShiftSwapRequest {
+  id            String          @id @default(cuid())
+  requesterId   String
+  recipientId   String
+  requesterDate DateTime        @db.Date
+  recipientDate DateTime        @db.Date
+  note          String?
+  status        ShiftSwapStatus @default(WAITING_FOR_USER)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  requester User @relation("ShiftSwapRequester", fields: [requesterId], references: [id], onDelete: Cascade)
+  recipient User @relation("ShiftSwapRecipient", fields: [recipientId], references: [id], onDelete: Cascade)
+  overrides ShiftDayOverride[]
+
+  @@index([requesterId, status])
+  @@index([recipientId, status])
+  @@map("shift_swap_requests")
+}
+
+model ShiftDayOverride {
+  id        String        @id @default(cuid())
+  userId    String
+  date      DateTime      @db.Date
+  status    ShiftDayStatus
+  shift     WorkShift?
+  requestId String
+  createdAt DateTime      @default(now())
+
+  user    User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  request ShiftSwapRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, date])
+  @@index([date])
+  @@map("shift_day_overrides")
 }
 
 model Role {
@@ -305,6 +345,19 @@ enum ShiftRepeat {
   ONCE
   DAILY
   WEEKLY
+}
+
+enum ShiftSwapStatus {
+  WAITING_FOR_USER
+  WAITING_FOR_ADMIN
+  APPROVED
+  DECLINED
+  REJECTED
+}
+
+enum ShiftDayStatus {
+  WORK
+  LEAVE
 }
 
 enum SerialNumberStatus {

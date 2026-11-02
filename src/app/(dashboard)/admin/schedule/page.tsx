@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/shared/page-header";
 import { ShiftScheduleManager } from "@/components/admin/shift-schedule-manager";
+import { ShiftSwapManager } from "@/components/admin/shift-swap-manager";
 import { hasPermission } from "@/lib/permissions";
 import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
@@ -64,6 +65,9 @@ export default async function ShiftSchedulePage({
         where: { startsOn: { lte: weekEnd } },
         orderBy: [{ startsOn: "asc" }],
       },
+      shiftDayOverrides: {
+        where: { date: { gte: weekStart, lte: weekEnd } },
+      },
     },
   });
 
@@ -77,7 +81,10 @@ export default async function ShiftSchedulePage({
     userIndex,
     days: weekDays.map((date) => {
       const key = dateKey(date);
-      const leave = user.leaves.find((item) => {
+      const override = user.shiftDayOverrides.find((item) => dateKey(item.date) === key);
+      const leave = override
+        ? override.status === "LEAVE"
+        : user.leaves.some((item) => {
         const startsOn = dateKey(item.startsOn);
         const endsOn = item.endsOn ? dateKey(item.endsOn) : null;
         if (startsOn > key || (endsOn && endsOn < key)) return false;
@@ -95,7 +102,12 @@ export default async function ShiftSchedulePage({
           return rule.weekdays.includes(date.getUTCDay());
         })
         .at(-1);
-      return { date, key, leave: Boolean(leave), shift: matchingRule?.shift ?? user.defaultShift };
+      return {
+        date,
+        key,
+        leave: Boolean(leave),
+        shift: override?.status === "WORK" ? override.shift ?? matchingRule?.shift ?? user.defaultShift : matchingRule?.shift ?? user.defaultShift,
+      };
     }),
   }));
   const previousWeek = new Date(weekStart);
@@ -125,6 +137,24 @@ export default async function ShiftSchedulePage({
       reason: leave.reason,
     })),
   }));
+  const [swapUsers, swapRequests] = await Promise.all([
+    prisma.user.findMany({
+      where: { isActive: true },
+      orderBy: [{ name: "asc" }, { email: "asc" }],
+      select: { id: true, name: true, email: true },
+    }),
+    prisma.shiftSwapRequest.findMany({
+      where: canManageShifts
+        ? { OR: [{ status: "WAITING_FOR_ADMIN" }, { requesterId: session.user.id }, { recipientId: session.user.id }] }
+        : { OR: [{ requesterId: session.user.id }, { recipientId: session.user.id }] },
+      include: {
+        requester: { select: { name: true, email: true } },
+        recipient: { select: { name: true, email: true } },
+      },
+      orderBy: { createdAt: "desc" },
+      take: 100,
+    }),
+  ]);
 
   return (
     <div className="space-y-6">
@@ -231,6 +261,23 @@ export default async function ShiftSchedulePage({
           Morning is 9:00 AM–6:00 PM; Night is 2:00 PM–11:00 PM. Date-specific rules override each user’s default shift. Leave takes precedence over any shift.
         </p>
       </section>
+
+      <ShiftSwapManager
+        currentUserId={session.user.id}
+        users={swapUsers}
+        requests={swapRequests.map((request) => ({
+          id: request.id,
+          requesterId: request.requesterId,
+          recipientId: request.recipientId,
+          requesterDate: dateKey(request.requesterDate),
+          recipientDate: dateKey(request.recipientDate),
+          note: request.note,
+          status: request.status,
+          requester: request.requester,
+          recipient: request.recipient,
+        }))}
+        canApprove={canManageShifts}
+      />
 
       {canManageShifts ? (
         <ShiftScheduleManager users={managerUsers} />

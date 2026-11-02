@@ -50,6 +50,8 @@ prisma/migrations/*
 !prisma/migrations/20261102100000_recurring_user_leave/migration.sql
 !prisma/migrations/20261102090000_seed_shift_permission/
 !prisma/migrations/20261102090000_seed_shift_permission/migration.sql
+!prisma/migrations/20261102110000_shift_swap_workflow/
+!prisma/migrations/20261102110000_shift_swap_workflow/migration.sql
 !prisma/migrations/20261028200000_login_history/
 !prisma/migrations/20261028200000_login_history/migration.sql
 !prisma/migrations/20261029120000_exclude_products_from_low_stock/
