@@ -2,9 +2,11 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHeader } from "@/components/shared/page-header";
 import { ShiftScheduleManager } from "@/components/admin/shift-schedule-manager";
-import { requirePermission } from "@/lib/permissions";
+import { hasPermission } from "@/lib/permissions";
+import { auth } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
 import { Button } from "@/components/ui/button";
+import { redirect } from "next/navigation";
 
 export const metadata: Metadata = { title: "Shift Schedule" };
 
@@ -43,13 +45,15 @@ export default async function ShiftSchedulePage({
 }: {
   searchParams: Promise<{ week?: string }>;
 }) {
-  await requirePermission("shifts", "manage");
+  const session = await auth();
+  if (!session?.user?.id) redirect("/login");
+  const canManageShifts = await hasPermission(session.user.id, "shifts", "manage");
   const params = await searchParams;
   const weekStart = startOfWeek(parseWeekDate(params.week));
   const weekEnd = new Date(weekStart);
   weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
   const users = await prisma.user.findMany({
-    where: { isActive: true },
+    where: canManageShifts ? { isActive: true } : { id: session.user.id, isActive: true },
     orderBy: [{ name: "asc" }, { email: "asc" }],
     include: {
       shiftSchedules: {
@@ -68,6 +72,32 @@ export default async function ShiftSchedulePage({
     date.setUTCDate(date.getUTCDate() + index);
     return date;
   });
+  const scheduleRows = users.map((user, userIndex) => ({
+    user,
+    userIndex,
+    days: weekDays.map((date) => {
+      const key = dateKey(date);
+      const leave = user.leaves.find((item) => {
+        const startsOn = dateKey(item.startsOn);
+        const endsOn = item.endsOn ? dateKey(item.endsOn) : null;
+        if (startsOn > key || (endsOn && endsOn < key)) return false;
+        if (item.repeat === "ONCE") return startsOn <= key;
+        if (item.repeat === "DAILY") return true;
+        return item.weekdays.includes(date.getUTCDay());
+      });
+      const matchingRule = user.shiftSchedules
+        .filter((rule) => {
+          const startsOn = dateKey(rule.startsOn);
+          const endsOn = rule.endsOn ? dateKey(rule.endsOn) : null;
+          if (startsOn > key || (endsOn && endsOn < key)) return false;
+          if (rule.repeat === "ONCE") return startsOn === key;
+          if (rule.repeat === "DAILY") return true;
+          return rule.weekdays.includes(date.getUTCDay());
+        })
+        .at(-1);
+      return { date, key, leave: Boolean(leave), shift: matchingRule?.shift ?? user.defaultShift };
+    }),
+  }));
   const previousWeek = new Date(weekStart);
   previousWeek.setUTCDate(previousWeek.getUTCDate() - 7);
   const nextWeek = new Date(weekStart);
@@ -89,17 +119,24 @@ export default async function ShiftSchedulePage({
     leaves: user.leaves.map((leave) => ({
       id: leave.id,
       startsOn: dateKey(leave.startsOn),
-      endsOn: dateKey(leave.endsOn),
+      endsOn: leave.endsOn ? dateKey(leave.endsOn) : null,
+      repeat: leave.repeat,
+      weekdays: leave.weekdays,
       reason: leave.reason,
     })),
   }));
 
   return (
     <div className="space-y-6">
-      <PageHeader title="Shift Schedule" description="Set employee shifts, recurring schedules, and leave">
-        <Button asChild variant="outline">
-          <Link href="/admin/users">Manage users</Link>
-        </Button>
+      <PageHeader
+        title="Shift Schedule"
+        description={canManageShifts ? "View and manage employee shifts, recurring schedules, and leave" : "View your weekly shifts and leave"}
+      >
+        {canManageShifts && (
+          <Button asChild variant="outline">
+            <Link href="/admin/users">Manage users</Link>
+          </Button>
+        )}
       </PageHeader>
 
       <section className="space-y-4 rounded-lg border bg-card p-5">
@@ -119,7 +156,41 @@ export default async function ShiftSchedulePage({
             </Button>
           </div>
         </div>
-        <div className="overflow-x-auto">
+        <div className="space-y-3 md:hidden">
+          {scheduleRows.map(({ user, userIndex, days }) => (
+            <article key={user.id} className="rounded-lg border bg-background p-4 shadow-sm">
+              <div className="mb-3 flex items-center gap-3 border-b pb-3">
+                <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-medium text-muted-foreground">
+                  {userIndex + 1}
+                </span>
+                <div className="min-w-0">
+                  <h3 className="truncate font-semibold">{user.name || user.email}</h3>
+                  {user.name && <p className="truncate text-xs text-muted-foreground">{user.email}</p>}
+                </div>
+              </div>
+              <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+                {days.map(({ date, key, leave, shift }) => (
+                  <div key={key} className="flex min-h-12 items-center justify-between gap-3 rounded-md bg-muted/50 px-3 py-2">
+                    <span className="min-w-0 text-sm font-medium text-foreground">
+                      {new Intl.DateTimeFormat("en", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" }).format(date)}
+                    </span>
+                    {leave ? (
+                      <span className="shrink-0 rounded bg-red-100 px-2 py-1 text-xs font-semibold text-red-800">Leave</span>
+                    ) : (
+                      <span className="shrink-0 rounded bg-sky-100 px-2 py-1 text-xs font-medium text-sky-900">
+                        {shiftLabel(shift).split(" · ")[0]}
+                      </span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            </article>
+          ))}
+          {users.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">No active users found.</p>
+          )}
+        </div>
+        <div className="hidden overflow-x-auto md:block">
           <table className="w-full min-w-[900px] border-collapse text-sm">
             <thead>
               <tr className="border-b">
@@ -131,37 +202,21 @@ export default async function ShiftSchedulePage({
               </tr>
             </thead>
             <tbody>
-              {users.map((user, userIndex) => (
+              {scheduleRows.map(({ user, userIndex, days }) => (
                 <tr key={user.id} className="border-b last:border-0">
                   <td className="px-3 py-3 text-muted-foreground">{userIndex + 1}</td>
                   <th className="px-3 py-3 text-left font-medium">{user.name || user.email}</th>
-                  {weekDays.map((date) => {
-                    const key = dateKey(date);
-                    const leave = user.leaves.find((item) =>
-                      dateKey(item.startsOn) <= key && dateKey(item.endsOn) >= key
-                    );
-                    const matchingRule = user.shiftSchedules
-                      .filter((rule) => {
-                        const startsOn = dateKey(rule.startsOn);
-                        const endsOn = rule.endsOn ? dateKey(rule.endsOn) : null;
-                        if (startsOn > key || (endsOn && endsOn < key)) return false;
-                        if (rule.repeat === "ONCE") return startsOn === key;
-                        if (rule.repeat === "DAILY") return true;
-                        return rule.weekdays.includes(date.getUTCDay());
-                      })
-                      .at(-1);
-                    return (
-                      <td key={key} className="px-3 py-3">
-                        {leave ? (
-                          <span className="inline-flex min-w-20 justify-center rounded-md bg-red-100 px-2 py-1 text-xs font-semibold text-red-800">Leave</span>
-                        ) : (
-                          <span className="inline-flex min-w-20 justify-center rounded-md bg-sky-100 px-2 py-1 text-xs font-medium text-sky-900">
-                            {shiftLabel(matchingRule?.shift ?? user.defaultShift).split(" · ")[0]}
-                          </span>
-                        )}
-                      </td>
-                    );
-                  })}
+                  {days.map(({ key, leave, shift }) => (
+                    <td key={key} className="px-3 py-3">
+                      {leave ? (
+                        <span className="inline-flex min-w-20 justify-center rounded-md bg-red-100 px-2 py-1 text-xs font-semibold text-red-800">Leave</span>
+                      ) : (
+                        <span className="inline-flex min-w-20 justify-center rounded-md bg-sky-100 px-2 py-1 text-xs font-medium text-sky-900">
+                          {shiftLabel(shift).split(" · ")[0]}
+                        </span>
+                      )}
+                    </td>
+                  ))}
                 </tr>
               ))}
               {users.length === 0 && (
@@ -172,12 +227,16 @@ export default async function ShiftSchedulePage({
             </tbody>
           </table>
         </div>
-        <p className="text-xs text-muted-foreground">
+        <p className="text-xs leading-relaxed text-muted-foreground">
           Morning is 9:00 AM–6:00 PM; Night is 2:00 PM–11:00 PM. Date-specific rules override each user’s default shift. Leave takes precedence over any shift.
         </p>
       </section>
 
-      <ShiftScheduleManager users={managerUsers} />
+      {canManageShifts ? (
+        <ShiftScheduleManager users={managerUsers} />
+      ) : (
+        <p className="text-sm text-muted-foreground">You can view your schedule. Contact an administrator to request a shift change.</p>
+      )}
     </div>
   );
 }

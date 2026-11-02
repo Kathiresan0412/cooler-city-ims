@@ -31,6 +31,6 @@ export const navItems: NavItem[] = [
   // { href: "/notifications", label: "Notifications", icon: BellRing },
   // { href: "/barcode", label: "Barcode", icon: ScanLine },
   { href: "/admin/users", label: "Users", icon: Users, permission: { resource: "users", action: "read" } },
-  { href: "/admin/schedule", label: "Shift Schedule", icon: CalendarDays, permission: { resource: "shifts", action: "manage" } },
+  { href: "/admin/schedule", label: "Shift Schedule", icon: CalendarDays },
   { href: "/admin/roles", label: "Roles", icon: Truck, permission: { resource: "roles", action: "read" } },
 ];

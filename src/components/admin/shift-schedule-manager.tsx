@@ -42,7 +42,9 @@ type ScheduleUser = {
   leaves: {
     id: string;
     startsOn: string;
-    endsOn: string;
+    endsOn: string | null;
+    repeat: ShiftRepeat;
+    weekdays: number[];
     reason: string | null;
   }[];
 };
@@ -72,6 +74,8 @@ export function ShiftScheduleManager({ users }: { users: ScheduleUser[] }) {
   const { toast } = useToast();
   const [repeat, setRepeat] = useState<ShiftRepeat>("WEEKLY");
   const [selectedDays, setSelectedDays] = useState<number[]>(weekdays.map((day) => day.value));
+  const [leaveRepeat, setLeaveRepeat] = useState<ShiftRepeat>("ONCE");
+  const [selectedLeaveDays, setSelectedLeaveDays] = useState<number[]>([]);
   const [savingSchedule, setSavingSchedule] = useState(false);
   const [savingLeave, setSavingLeave] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -116,6 +120,8 @@ export function ShiftScheduleManager({ users }: { users: ScheduleUser[] }) {
         userId: String(values.get("userId") ?? ""),
         startsOn: String(values.get("startsOn") ?? ""),
         endsOn: String(values.get("endsOn") ?? ""),
+        repeat: leaveRepeat,
+        weekdays: leaveRepeat === "WEEKLY" ? selectedLeaveDays : [],
         reason: String(values.get("reason") ?? ""),
       });
       if (!result.success) {
@@ -123,6 +129,8 @@ export function ShiftScheduleManager({ users }: { users: ScheduleUser[] }) {
         return;
       }
       form.reset();
+      setLeaveRepeat("ONCE");
+      setSelectedLeaveDays([]);
       toast({ title: "Leave recorded" });
       router.refresh();
     } catch {
@@ -275,7 +283,7 @@ export function ShiftScheduleManager({ users }: { users: ScheduleUser[] }) {
       <section className="space-y-5 rounded-lg border bg-card p-5">
         <div>
           <h2 className="text-lg font-semibold">Record leave</h2>
-          <p className="text-sm text-muted-foreground">Leave overrides scheduled shifts for every date in the range.</p>
+          <p className="text-sm text-muted-foreground">Leave overrides scheduled shifts. Set it once or repeat it every week.</p>
         </div>
         <form onSubmit={submitLeave} className="space-y-4">
           <div className="space-y-2">
@@ -286,16 +294,52 @@ export function ShiftScheduleManager({ users }: { users: ScheduleUser[] }) {
               ))}
             </select>
           </div>
+          <div className="space-y-2">
+            <Label htmlFor="leave-repeat">Repeat</Label>
+            <select
+              id="leave-repeat"
+              value={leaveRepeat}
+              onChange={(event) => setLeaveRepeat(event.target.value as ShiftRepeat)}
+              disabled={savingLeave}
+              className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm"
+            >
+              <option value="ONCE">One time / date range</option>
+              <option value="WEEKLY">Every week on selected days</option>
+              <option value="DAILY">Every day</option>
+            </select>
+          </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-2">
-              <Label htmlFor="leave-start">First day</Label>
+              <Label htmlFor="leave-start">Starts on</Label>
               <Input id="leave-start" name="startsOn" type="date" required disabled={savingLeave} />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="leave-end">Last day</Label>
-              <Input id="leave-end" name="endsOn" type="date" required disabled={savingLeave} />
+              <Label htmlFor="leave-end">Ends on (optional for recurring leave)</Label>
+              <Input id="leave-end" name="endsOn" type="date" required={leaveRepeat === "ONCE"} disabled={savingLeave} />
             </div>
           </div>
+          {leaveRepeat === "WEEKLY" && (
+            <fieldset className="space-y-2">
+              <legend className="text-sm font-medium">Leave on</legend>
+              <div className="flex flex-wrap gap-2">
+                {weekdays.map((day) => (
+                  <label key={day.value} className="inline-flex cursor-pointer items-center gap-2 rounded-md border px-3 py-2 text-sm">
+                    <input
+                      type="checkbox"
+                      checked={selectedLeaveDays.includes(day.value)}
+                      disabled={savingLeave}
+                      onChange={(event) => setSelectedLeaveDays((current) =>
+                        event.target.checked
+                          ? [...current, day.value].sort((a, b) => a - b)
+                          : current.filter((value) => value !== day.value)
+                      )}
+                    />
+                    {day.label}
+                  </label>
+                ))}
+              </div>
+            </fieldset>
+          )}
           <div className="space-y-2">
             <Label htmlFor="leave-reason">Note (optional)</Label>
             <Input id="leave-reason" name="reason" maxLength={250} disabled={savingLeave} />
@@ -316,7 +360,13 @@ export function ShiftScheduleManager({ users }: { users: ScheduleUser[] }) {
                 <li key={leave.id} className="flex items-start justify-between gap-3 rounded-md border p-3 text-sm">
                   <div>
                     <p className="font-medium">{user.name || user.email}</p>
-                    <p className="text-muted-foreground">{formatDate(leave.startsOn)} - {formatDate(leave.endsOn)}</p>
+                    <p className="text-muted-foreground">
+                      {leave.repeat === "WEEKLY"
+                        ? `Every ${weekdays.filter((day) => leave.weekdays.includes(day.value)).map((day) => day.label).join(", ")} from ${formatDate(leave.startsOn)}`
+                        : leave.repeat === "DAILY"
+                          ? `Every day from ${formatDate(leave.startsOn)}${leave.endsOn ? ` until ${formatDate(leave.endsOn)}` : ""}`
+                          : `${formatDate(leave.startsOn)} - ${leave.endsOn ? formatDate(leave.endsOn) : ""}`}
+                    </p>
                     {leave.reason && <p className="text-muted-foreground">{leave.reason}</p>}
                   </div>
                   <Button type="button" variant="ghost" size="icon" aria-label="Remove leave record" disabled={deletingId === leave.id} onClick={() => removeLeave(leave.id)}>

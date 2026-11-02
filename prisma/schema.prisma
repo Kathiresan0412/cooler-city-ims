@@ -104,12 +104,14 @@ model ShiftScheduleRule {
 }
 
 model UserLeave {
-  id        String   @id @default(cuid())
+  id        String       @id @default(cuid())
   userId    String
-  startsOn  DateTime @db.Date
-  endsOn    DateTime @db.Date
+  startsOn  DateTime     @db.Date
+  endsOn    DateTime?    @db.Date
+  repeat    ShiftRepeat  @default(ONCE)
+  weekdays  Int[]        @default([])
   reason    String?
-  createdAt DateTime @default(now())
+  createdAt DateTime     @default(now())
 
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
 

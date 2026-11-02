@@ -42,12 +42,27 @@ const leaveSchema = z
   .object({
     userId: z.string().min(1, "Select a user"),
     startsOn: dateOnlySchema,
-    endsOn: dateOnlySchema,
+    endsOn: z.preprocess(
+      (value) => (value === "" ? undefined : value),
+      dateOnlySchema.optional()
+    ),
+    repeat: z.nativeEnum(ShiftRepeat),
+    weekdays: z.array(z.number().int().min(0).max(6)).max(7),
     reason: z.string().trim().max(250, "Reason must be 250 characters or fewer").optional(),
   })
-  .refine((data) => data.endsOn >= data.startsOn, {
-    path: ["endsOn"],
-    message: "End date must be on or after the start date",
+  .superRefine((data, context) => {
+    if (data.endsOn && data.endsOn < data.startsOn) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["endsOn"], message: "End date must be on or after the start date" });
+    }
+    if (data.repeat === "ONCE" && !data.endsOn) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["endsOn"], message: "Last day is required for one-time leave" });
+    }
+    if (data.repeat === "WEEKLY" && data.weekdays.length === 0) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["weekdays"], message: "Select at least one leave day" });
+    }
+    if (data.repeat !== "WEEKLY" && data.weekdays.length > 0) {
+      context.addIssue({ code: z.ZodIssueCode.custom, path: ["weekdays"], message: "Select weekdays only for weekly leave" });
+    }
   });
 
 function toDate(value: string) {
@@ -115,7 +130,9 @@ export async function deleteShiftSchedule(id: string) {
 export async function createUserLeave(data: {
   userId: string;
   startsOn: string;
-  endsOn: string;
+  endsOn?: string;
+  repeat: ShiftRepeat;
+  weekdays: number[];
   reason?: string;
 }) {
   await requirePermission("shifts", "manage");
@@ -131,18 +148,21 @@ export async function createUserLeave(data: {
   if (!user) return { success: false, error: "Selected active user was not found" };
 
   const startsOn = toDate(parsed.data.startsOn);
-  const endsOn = toDate(parsed.data.endsOn);
+  const endsOn = parsed.data.endsOn ? toDate(parsed.data.endsOn) : null;
   let created: boolean;
   try {
     created = await prisma.$transaction(async (transaction) => {
-      const overlappingLeave = await transaction.userLeave.findFirst({
-        where: {
-          userId: user.id,
-          startsOn: { lte: endsOn },
-          endsOn: { gte: startsOn },
-        },
-        select: { id: true },
-      });
+      const overlappingLeave = parsed.data.repeat === "ONCE" && endsOn
+        ? await transaction.userLeave.findFirst({
+            where: {
+              userId: user.id,
+              repeat: "ONCE",
+              startsOn: { lte: endsOn },
+              OR: [{ endsOn: null }, { endsOn: { gte: startsOn } }],
+            },
+            select: { id: true },
+          })
+        : null;
       if (overlappingLeave) {
         return false;
       }
@@ -152,6 +172,8 @@ export async function createUserLeave(data: {
           userId: user.id,
           startsOn,
           endsOn,
+          repeat: parsed.data.repeat,
+          weekdays: parsed.data.repeat === "WEEKLY" ? parsed.data.weekdays : [],
           reason: parsed.data.reason || null,
         },
       });
