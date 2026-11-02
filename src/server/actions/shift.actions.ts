@@ -127,6 +127,43 @@ export async function deleteShiftSchedule(id: string) {
   return { success: true, error: null };
 }
 
+export async function updateShiftSchedule(id: string, data: {
+  userId: string;
+  shift: WorkShift;
+  startsOn: string;
+  endsOn?: string;
+  repeat: ShiftRepeat;
+  weekdays: number[];
+}) {
+  await requirePermission("shifts", "manage");
+  const parsedId = z.string().min(1).safeParse(id);
+  const parsed = scheduleSchema.safeParse(data);
+  if (!parsedId.success || !parsed.success) {
+    return { success: false, error: parsed.success ? "Invalid schedule" : parsed.error.issues[0]?.message ?? "Invalid shift schedule" };
+  }
+  const user = await prisma.user.findFirst({ where: { id: parsed.data.userId, isActive: true }, select: { id: true } });
+  if (!user) return { success: false, error: "Selected active user was not found" };
+  try {
+    await prisma.shiftScheduleRule.update({
+      where: { id: parsedId.data },
+      data: {
+        userId: user.id,
+        shift: parsed.data.shift,
+        startsOn: toDate(parsed.data.startsOn),
+        endsOn: parsed.data.repeat === "ONCE" ? toDate(parsed.data.startsOn) : parsed.data.endsOn ? toDate(parsed.data.endsOn) : null,
+        repeat: parsed.data.repeat,
+        weekdays: parsed.data.repeat === "WEEKLY" ? parsed.data.weekdays : [],
+      },
+    });
+  } catch (error) {
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return { success: false, error: "Shift schedule not found" };
+    throw error;
+  }
+  revalidatePath("/admin/schedule");
+  revalidatePath("/admin/users");
+  return { success: true, error: null };
+}
+
 export async function createUserLeave(data: {
   userId: string;
   startsOn: string;
@@ -205,6 +242,51 @@ export async function deleteUserLeave(id: string) {
     throw error;
   }
 
+  revalidatePath("/admin/schedule");
+  return { success: true, error: null };
+}
+
+export async function updateUserLeave(id: string, data: {
+  userId: string;
+  startsOn: string;
+  endsOn?: string;
+  repeat: ShiftRepeat;
+  weekdays: number[];
+  reason?: string;
+}) {
+  await requirePermission("shifts", "manage");
+  const parsedId = z.string().min(1).safeParse(id);
+  const parsed = leaveSchema.safeParse(data);
+  if (!parsedId.success || !parsed.success) {
+    return { success: false, error: parsed.success ? "Invalid leave record" : parsed.error.issues[0]?.message ?? "Invalid leave dates" };
+  }
+  const user = await prisma.user.findFirst({ where: { id: parsed.data.userId, isActive: true }, select: { id: true } });
+  if (!user) return { success: false, error: "Selected active user was not found" };
+  const startsOn = toDate(parsed.data.startsOn);
+  const endsOn = parsed.data.endsOn ? toDate(parsed.data.endsOn) : null;
+  try {
+    await prisma.$transaction(async (transaction) => {
+      if (parsed.data.repeat === "ONCE" && endsOn) {
+        const overlap = await transaction.userLeave.findFirst({
+          where: { userId: user.id, id: { not: parsedId.data }, repeat: "ONCE", startsOn: { lte: endsOn }, OR: [{ endsOn: null }, { endsOn: { gte: startsOn } }] },
+          select: { id: true },
+        });
+        if (overlap) return false;
+      }
+      await transaction.userLeave.update({
+        where: { id: parsedId.data },
+        data: { userId: user.id, startsOn, endsOn, repeat: parsed.data.repeat, weekdays: parsed.data.repeat === "WEEKLY" ? parsed.data.weekdays : [], reason: parsed.data.reason || null },
+      });
+      return true;
+    }, { isolationLevel: Prisma.TransactionIsolationLevel.Serializable }).then((updated) => {
+      if (!updated) throw new Error("LEAVE_OVERLAP");
+    });
+  } catch (error) {
+    if (error instanceof Error && error.message === "LEAVE_OVERLAP") return { success: false, error: "This leave period overlaps an existing leave for this user" };
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2025") return { success: false, error: "Leave record not found" };
+    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === "P2034") return { success: false, error: "Leave changed while saving. Please try again." };
+    throw error;
+  }
   revalidatePath("/admin/schedule");
   return { success: true, error: null };
 }

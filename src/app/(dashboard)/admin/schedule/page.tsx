@@ -54,20 +54,24 @@ export default async function ShiftSchedulePage({
   const weekEnd = new Date(weekStart);
   weekEnd.setUTCDate(weekEnd.getUTCDate() + 6);
   const users = await prisma.user.findMany({
-    where: canManageShifts ? { isActive: true } : { id: session.user.id, isActive: true },
+    where: canManageShifts
+      ? {
+          isActive: true,
+          NOT: { role: { name: { contains: "admin", mode: "insensitive" } } },
+        }
+      : { id: session.user.id, isActive: true },
     orderBy: [{ name: "asc" }, { email: "asc" }],
     include: {
       shiftSchedules: {
-        where: { startsOn: { lte: weekEnd } },
         orderBy: [{ startsOn: "asc" }, { createdAt: "asc" }],
       },
       leaves: {
-        where: { startsOn: { lte: weekEnd } },
         orderBy: [{ startsOn: "asc" }],
       },
       shiftDayOverrides: {
         where: { date: { gte: weekStart, lte: weekEnd } },
       },
+      role: { select: { name: true } },
     },
   });
 
@@ -115,13 +119,19 @@ export default async function ShiftSchedulePage({
   const nextWeek = new Date(weekStart);
   nextWeek.setUTCDate(nextWeek.getUTCDate() + 7);
 
-  const managerUsers = users.map((user) => ({
+  const managerUsers = users
+    .filter((user) => {
+      const roleName = user.role?.name.toLowerCase() ?? "";
+      return !roleName.includes("admit");
+    })
+    .map((user) => ({
     id: user.id,
     name: user.name,
     email: user.email,
     defaultShift: user.defaultShift,
     shiftSchedules: user.shiftSchedules.map((rule) => ({
       id: rule.id,
+      updatedAt: (rule.updatedAt ?? rule.createdAt).toISOString(),
       shift: rule.shift,
       startsOn: dateKey(rule.startsOn),
       endsOn: rule.endsOn ? dateKey(rule.endsOn) : null,
@@ -130,13 +140,14 @@ export default async function ShiftSchedulePage({
     })),
     leaves: user.leaves.map((leave) => ({
       id: leave.id,
+      updatedAt: (leave.updatedAt ?? leave.createdAt).toISOString(),
       startsOn: dateKey(leave.startsOn),
       endsOn: leave.endsOn ? dateKey(leave.endsOn) : null,
       repeat: leave.repeat,
       weekdays: leave.weekdays,
       reason: leave.reason,
     })),
-  }));
+    }));
   const [swapUsers, swapRequests] = await Promise.all([
     prisma.user.findMany({
       where: { isActive: true },
