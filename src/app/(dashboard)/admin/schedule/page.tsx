@@ -26,7 +26,7 @@ function startOfWeek(date: Date) {
 }
 
 function shiftLabel(shift: string) {
-  return shift === "NINE_TO_SIX" ? "9:00 AM - 6:00 PM" : "2:00 PM - 11:00 PM";
+  return shift === "NINE_TO_SIX" ? "Morning · 9:00 AM–6:00 PM" : "Night · 2:00 PM–11:00 PM";
 }
 
 function dateLabel(date: Date) {
@@ -120,9 +120,10 @@ export default async function ShiftSchedulePage({
           </div>
         </div>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[760px] border-collapse text-sm">
+          <table className="w-full min-w-[900px] border-collapse text-sm">
             <thead>
               <tr className="border-b">
+                <th className="w-12 px-3 py-3 text-left font-medium">No.</th>
                 <th className="px-3 py-3 text-left font-medium">User</th>
                 {weekDays.map((date) => (
                   <th key={dateKey(date)} className="px-3 py-3 text-left font-medium">{dateLabel(date)}</th>
@@ -130,8 +131,9 @@ export default async function ShiftSchedulePage({
               </tr>
             </thead>
             <tbody>
-              {users.map((user) => (
+              {users.map((user, userIndex) => (
                 <tr key={user.id} className="border-b last:border-0">
+                  <td className="px-3 py-3 text-muted-foreground">{userIndex + 1}</td>
                   <th className="px-3 py-3 text-left font-medium">{user.name || user.email}</th>
                   {weekDays.map((date) => {
                     const key = dateKey(date);
@@ -151,9 +153,11 @@ export default async function ShiftSchedulePage({
                     return (
                       <td key={key} className="px-3 py-3">
                         {leave ? (
-                          <span className="rounded-full bg-amber-100 px-2 py-1 text-xs font-medium text-amber-900">Leave</span>
+                          <span className="inline-flex min-w-20 justify-center rounded-md bg-red-100 px-2 py-1 text-xs font-semibold text-red-800">Leave</span>
                         ) : (
-                          shiftLabel(matchingRule?.shift ?? user.defaultShift)
+                          <span className="inline-flex min-w-20 justify-center rounded-md bg-sky-100 px-2 py-1 text-xs font-medium text-sky-900">
+                            {shiftLabel(matchingRule?.shift ?? user.defaultShift).split(" · ")[0]}
+                          </span>
                         )}
                       </td>
                     );
@@ -162,14 +166,14 @@ export default async function ShiftSchedulePage({
               ))}
               {users.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-3 py-8 text-center text-muted-foreground">No active users found.</td>
+                  <td colSpan={9} className="px-3 py-8 text-center text-muted-foreground">No active users found.</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
         <p className="text-xs text-muted-foreground">
-          Date-specific rules override each user’s default shift. Leave takes precedence over any shift.
+          Morning is 9:00 AM–6:00 PM; Night is 2:00 PM–11:00 PM. Date-specific rules override each user’s default shift. Leave takes precedence over any shift.
         </p>
       </section>
 

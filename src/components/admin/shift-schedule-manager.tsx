@@ -48,7 +48,7 @@ type ScheduleUser = {
 };
 
 function shiftLabel(shift: WorkShift) {
-  return shift === "NINE_TO_SIX" ? "9:00 AM - 6:00 PM" : "2:00 PM - 11:00 PM";
+  return shift === "NINE_TO_SIX" ? "Morning · 9:00 AM–6:00 PM" : "Night · 2:00 PM–11:00 PM";
 }
 
 function formatDate(value: string) {
@@ -187,8 +187,8 @@ export function ShiftScheduleManager({ users }: { users: ScheduleUser[] }) {
           <div className="space-y-2">
             <Label htmlFor="schedule-shift">Shift</Label>
             <select id="schedule-shift" name="shift" defaultValue="NINE_TO_SIX" disabled={savingSchedule} className="h-10 w-full rounded-md border border-input bg-background px-3 text-sm">
-              <option value="NINE_TO_SIX">9:00 AM - 6:00 PM</option>
-              <option value="TWO_TO_ELEVEN">2:00 PM - 11:00 PM</option>
+              <option value="NINE_TO_SIX">Morning · 9:00 AM–6:00 PM</option>
+              <option value="TWO_TO_ELEVEN">Night · 2:00 PM–11:00 PM</option>
             </select>
           </div>
           <div className="grid gap-4 sm:grid-cols-2">

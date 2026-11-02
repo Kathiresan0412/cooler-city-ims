@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import type { WorkShift } from "@prisma/client";
 import { Eye, EyeOff, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -149,8 +150,8 @@ export function UserForm({ userId, roles, initialUser }: UserFormProps) {
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="NINE_TO_SIX">9:00 AM - 6:00 PM</SelectItem>
-            <SelectItem value="TWO_TO_ELEVEN">2:00 PM - 11:00 PM</SelectItem>
+            <SelectItem value="NINE_TO_SIX">Morning · 9:00 AM–6:00 PM</SelectItem>
+            <SelectItem value="TWO_TO_ELEVEN">Night · 2:00 PM–11:00 PM</SelectItem>
           </SelectContent>
         </Select>
         <p className="text-xs text-muted-foreground">Used when no date-specific schedule is set.</p>

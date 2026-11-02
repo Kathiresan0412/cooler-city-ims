@@ -50,7 +50,7 @@ export default async function UsersPage() {
                   </td>
                   <td className="px-4 py-3">{user.email}</td>
                   <td className="px-4 py-3">{user.role?.name ?? "No role"}</td>
-                  <td className="px-4 py-3">{user.defaultShift === "NINE_TO_SIX" ? "9:00 AM - 6:00 PM" : "2:00 PM - 11:00 PM"}</td>
+                  <td className="px-4 py-3">{user.defaultShift === "NINE_TO_SIX" ? "Morning · 9:00 AM–6:00 PM" : "Night · 2:00 PM–11:00 PM"}</td>
                   <td className="px-4 py-3">{user.isActive ? "Active" : "Inactive"}</td>
                   <td className="px-4 py-3 text-right">
                     <div className="inline-flex items-center">
@@ -83,7 +83,7 @@ export default async function UsersPage() {
                 <p className="break-all text-sm text-muted-foreground">{user.email}</p>
               </div>
               <div className="flex justify-between border-t pt-3 text-sm">
-                <span>{user.role?.name ?? "No role"} · {user.defaultShift === "NINE_TO_SIX" ? "9:00 AM - 6:00 PM" : "2:00 PM - 11:00 PM"}</span>
+                <span>{user.role?.name ?? "No role"} · {user.defaultShift === "NINE_TO_SIX" ? "Morning · 9:00 AM–6:00 PM" : "Night · 2:00 PM–11:00 PM"}</span>
                 <span className="text-muted-foreground">{user.isActive ? "Active" : "Inactive"}</span>
               </div>
               <div className="flex justify-end border-t pt-2">
